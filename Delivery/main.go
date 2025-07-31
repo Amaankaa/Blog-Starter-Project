@@ -8,7 +8,7 @@ import (
 
 	"github.com/Amaankaa/Blog-Starter-Project/Delivery/controllers"
 	"github.com/Amaankaa/Blog-Starter-Project/Delivery/routers"
-	infrastructure "github.com/Amaankaa/Blog-Starter-Project/Infrastructure"
+	"github.com/Amaankaa/Blog-Starter-Project/Infrastructure"
 	"github.com/Amaankaa/Blog-Starter-Project/Repositories"
 	"github.com/Amaankaa/Blog-Starter-Project/Usecases"
 
@@ -19,8 +19,7 @@ import (
 
 func main() {
 	// Load environment variables from .env file
-	err := godotenv.Load()
-	if err != nil {
+	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
@@ -46,8 +45,14 @@ func main() {
 	// Initialize services
 	passwordService := infrastructure.NewPasswordService()
 
+	// ✅ Initialize email verifier
+	emailVerifier, err := infrastructure.NewMailboxLayerVerifier()
+	if err != nil {
+		log.Fatalf("Failed to initialize email verifier: %v", err)
+	}
+
 	// Initialize repositories
-	userRepo := repositories.NewUserRepository(userCollection, passwordService)
+	userRepo := repositories.NewUserRepository(userCollection, passwordService, emailVerifier)
 
 	// Initialize usecases
 	userUsecase := usecases.NewUserUsecase(userRepo)
@@ -55,15 +60,12 @@ func main() {
 	// Initialize controllers
 	controller := controllers.NewController(userUsecase)
 
-	// Initialize middleware
-
 	// Setup router
 	r := routers.SetupRouter(controller)
 
 	// Start server
 	log.Println("Server starting on :8080")
-	err = r.Run(":8080")
-	if err != nil {
+	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

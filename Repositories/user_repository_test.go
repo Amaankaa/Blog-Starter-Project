@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Amaankaa/Blog-Starter-Project/Domain/user"
+	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
 	"github.com/stretchr/testify/suite"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -25,6 +25,17 @@ func (m *MockPasswordService) IHashPassword(password string) (string, error) {
 
 func (f *MockPasswordService) IComparePassword(hashed, plain string) error {
 	return nil
+}
+
+// -------------------------------------------------------------------
+// Mock Email Verifier
+// -------------------------------------------------------------------
+
+type MockEmailVerifier struct{}
+
+func (m *MockEmailVerifier) IsRealEmail(email string) (bool, error) {
+	// Always return true for testing
+	return true, nil
 }
 
 // -------------------------------------------------------------------
@@ -57,7 +68,10 @@ func (ts *UserRepoTestSuite) SetupTest() {
 	_, err := ts.users.Indexes().CreateOne(context.Background(), index)
 	ts.Require().NoError(err)
 
-	ts.repo = NewUserRepository(ts.users, &MockPasswordService{})
+	// Add both mocks
+	mockPassword := &MockPasswordService{}
+	mockEmailVerifier := &MockEmailVerifier{}
+	ts.repo = NewUserRepository(ts.users, mockPassword, mockEmailVerifier)
 }
 
 func (ts *UserRepoTestSuite) TearDownTest() {
@@ -84,7 +98,6 @@ func (ts *UserRepoTestSuite) TestAssignsAdminRoleToFirstUser() {
 }
 
 func (ts *UserRepoTestSuite) TestRegistersUserAsNormalUser() {
-	// Register admin first
 	_, err := ts.repo.RegisterUser(userpkg.User{
 		Username: "admin",
 		Password: "Str0ng!Pass",
@@ -93,7 +106,6 @@ func (ts *UserRepoTestSuite) TestRegistersUserAsNormalUser() {
 	})
 	ts.Require().NoError(err)
 
-	// Then register a second user
 	newUser := userpkg.User{
 		Username: "johndoe",
 		Password: "Str0ng!Pass",
