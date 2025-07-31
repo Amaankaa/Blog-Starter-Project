@@ -5,13 +5,13 @@ type UserUsecase interface {
 }
 
 // User Infrastructure interfaces
-type JWTService interface {
-	IGenerateToken(userID, username, role string) (string, error)
-	IValidateToken(tokenString string) (map[string]interface{}, error)
+type IJWTService interface {
+	GenerateToken(userID, username, role string) (string, error)
+	ValidateToken(tokenString string) (map[string]interface{}, error)
 }
 
 // PasswordService interface defines password operations
-type PasswordService interface {
-	IHashPassword(password string) (string, error)
-	IComparePassword(hashedPassword, password string) error
+type IPasswordService interface {
+	HashPassword(password string) (string, error)
+	ComparePassword(hashedPassword, password string) error
 }

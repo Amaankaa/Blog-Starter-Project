@@ -5,15 +5,15 @@ import (
 )
 
 type UserUsecase struct {
-	userRepo userpkg.UserRepository
+	userRepo userpkg.IUserRepository
 }
 
-func NewUserUsecase(userRepo userpkg.UserRepository) *UserUsecase {
+func NewUserUsecase(userRepo userpkg.IUserRepository) *UserUsecase {
 	return &UserUsecase{
 		userRepo: userRepo,
 	}
 }
 
-func (uu *UserUsecase) IRegisterUser(user userpkg.User) (userpkg.User, error) {
+func (uu *UserUsecase) RegisterUser(user userpkg.User) (userpkg.User, error) {
 	return uu.userRepo.RegisterUser(user)
 }

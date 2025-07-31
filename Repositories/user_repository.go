@@ -16,13 +16,13 @@ import (
 
 type UserRepository struct {
 	collection      *mongo.Collection
-	passwordService userpkg.PasswordService
+	passwordService userpkg.IPasswordService
 	emailVerifier   services.IEmailVerifier
 }
 
 func NewUserRepository(
 	collection *mongo.Collection,
-	passwordService userpkg.PasswordService,
+	passwordService userpkg.IPasswordService,
 	emailVerifier services.IEmailVerifier,
 ) *UserRepository {
 	return &UserRepository{
@@ -92,7 +92,7 @@ func (ur *UserRepository) RegisterUser(user userpkg.User) (userpkg.User, error) 
 	}
 
 	// Hash the password before storing
-	hashedPassword, err := ur.passwordService.IHashPassword(user.Password)
+	hashedPassword, err := ur.passwordService.HashPassword(user.Password)
 	if err != nil {
 		return userpkg.User{}, err
 	}
