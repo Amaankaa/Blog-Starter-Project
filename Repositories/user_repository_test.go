@@ -19,11 +19,11 @@ import (
 
 type MockPasswordService struct{}
 
-func (m *MockPasswordService) IHashPassword(password string) (string, error) {
+func (m *MockPasswordService) HashPassword(password string) (string, error) {
 	return "hashed-" + password, nil
 }
 
-func (f *MockPasswordService) IComparePassword(hashed, plain string) error {
+func (f *MockPasswordService) ComparePassword(hashed, plain string) error {
 	return nil
 }
 

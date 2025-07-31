@@ -2,6 +2,6 @@ package userpkg
 
 
 // UserRepository interface defines user data access operations
-type UserRepository interface {
+type IUserRepository interface {
 	RegisterUser(user User) (User, error)
 }
