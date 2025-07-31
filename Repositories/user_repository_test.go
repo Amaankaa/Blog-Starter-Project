@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	domain "github.com/Amaankaa/Blog-Starter-Project/Domain"
+	"github.com/Amaankaa/Blog-Starter-Project/Domain/user"
 	"github.com/stretchr/testify/suite"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -19,11 +19,11 @@ import (
 
 type MockPasswordService struct{}
 
-func (m *MockPasswordService) HashPassword(password string) (string, error) {
+func (m *MockPasswordService) IHashPassword(password string) (string, error) {
 	return "hashed-" + password, nil
 }
 
-func (f *MockPasswordService) ComparePassword(hashed, plain string) error {
+func (f *MockPasswordService) IComparePassword(hashed, plain string) error {
 	return nil
 }
 
@@ -71,7 +71,7 @@ func (ts *UserRepoTestSuite) TearDownTest() {
 // -------------------------------------------------------------------
 
 func (ts *UserRepoTestSuite) TestAssignsAdminRoleToFirstUser() {
-	user := domain.User{
+	user := userpkg.User{
 		Username: "admin",
 		Password: "Str0ng!Pass",
 		Email:    "admin@example.com",
@@ -85,7 +85,7 @@ func (ts *UserRepoTestSuite) TestAssignsAdminRoleToFirstUser() {
 
 func (ts *UserRepoTestSuite) TestRegistersUserAsNormalUser() {
 	// Register admin first
-	_, err := ts.repo.RegisterUser(domain.User{
+	_, err := ts.repo.RegisterUser(userpkg.User{
 		Username: "admin",
 		Password: "Str0ng!Pass",
 		Email:    "admin@example.com",
@@ -94,7 +94,7 @@ func (ts *UserRepoTestSuite) TestRegistersUserAsNormalUser() {
 	ts.Require().NoError(err)
 
 	// Then register a second user
-	newUser := domain.User{
+	newUser := userpkg.User{
 		Username: "johndoe",
 		Password: "Str0ng!Pass",
 		Email:    "john@example.com",
@@ -111,7 +111,7 @@ func (ts *UserRepoTestSuite) TestRegistersUserAsNormalUser() {
 }
 
 func (ts *UserRepoTestSuite) TestRejectsWeakPassword() {
-	user := domain.User{
+	user := userpkg.User{
 		Username: "weakman",
 		Password: "123",
 		Email:    "weak@example.com",
@@ -123,7 +123,7 @@ func (ts *UserRepoTestSuite) TestRejectsWeakPassword() {
 }
 
 func (ts *UserRepoTestSuite) TestRejectsInvalidEmail() {
-	user := domain.User{
+	user := userpkg.User{
 		Username: "bademail",
 		Password: "Str0ng!Pass",
 		Email:    "not-an-email",
@@ -135,7 +135,7 @@ func (ts *UserRepoTestSuite) TestRejectsInvalidEmail() {
 }
 
 func (ts *UserRepoTestSuite) TestRejectsDuplicateEmail() {
-	first := domain.User{
+	first := userpkg.User{
 		Username: "original",
 		Password: "Str0ng!Pass",
 		Email:    "same@example.com",
@@ -144,7 +144,7 @@ func (ts *UserRepoTestSuite) TestRejectsDuplicateEmail() {
 	_, err := ts.repo.RegisterUser(first)
 	ts.Require().NoError(err)
 
-	dupe := domain.User{
+	dupe := userpkg.User{
 		Username: "copycat",
 		Password: "Str0ng!Pass",
 		Email:    "same@example.com",
@@ -155,7 +155,7 @@ func (ts *UserRepoTestSuite) TestRejectsDuplicateEmail() {
 }
 
 func (ts *UserRepoTestSuite) TestRejectsDuplicateUsername() {
-	first := domain.User{
+	first := userpkg.User{
 		Username: "reused",
 		Password: "Str0ng!Pass",
 		Email:    "reused1@example.com",
@@ -164,7 +164,7 @@ func (ts *UserRepoTestSuite) TestRejectsDuplicateUsername() {
 	_, err := ts.repo.RegisterUser(first)
 	ts.Require().NoError(err)
 
-	dupe := domain.User{
+	dupe := userpkg.User{
 		Username: "reused",
 		Password: "Str0ng!Pass",
 		Email:    "reused2@example.com",
