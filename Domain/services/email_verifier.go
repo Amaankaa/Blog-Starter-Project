@@ -1,5 +1,5 @@
 package services
 
-type EmailVerifier interface {
+type IEmailVerifier interface {
     IsRealEmail(email string) (bool, error)
 }

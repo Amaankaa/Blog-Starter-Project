@@ -17,13 +17,13 @@ import (
 type UserRepository struct {
 	collection      *mongo.Collection
 	passwordService userpkg.PasswordService
-	emailVerifier   services.EmailVerifier
+	emailVerifier   services.IEmailVerifier
 }
 
 func NewUserRepository(
 	collection *mongo.Collection,
 	passwordService userpkg.PasswordService,
-	emailVerifier services.EmailVerifier,
+	emailVerifier services.IEmailVerifier,
 ) *UserRepository {
 	return &UserRepository{
 		collection:      collection,
