@@ -4,15 +4,14 @@ import (
 	"net/http"
 
 	"github.com/Amaankaa/Blog-Starter-Project/Domain/user"
-	usecases "github.com/Amaankaa/Blog-Starter-Project/Usecases"
 	"github.com/gin-gonic/gin"
 )
 
 type Controller struct {
-	userUsecase *usecases.UserUsecase
+	userUsecase userpkg.IUserUsecase
 }
 
-func NewController(userUsecase *usecases.UserUsecase) *Controller {
+func NewController(userUsecase userpkg.IUserUsecase) *Controller {
 	return &Controller{
 		userUsecase: userUsecase,
 	}
