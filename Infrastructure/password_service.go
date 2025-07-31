@@ -10,7 +10,7 @@ func NewPasswordService() *PasswordService {
 	return &PasswordService{}
 }
 
-func (ps *PasswordService) HashPassword(password string) (string, error) {
+func (ps *PasswordService) IHashPassword(password string) (string, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return "", err
@@ -18,6 +18,6 @@ func (ps *PasswordService) HashPassword(password string) (string, error) {
 	return string(hashedPassword), nil
 }
 
-func (ps *PasswordService) ComparePassword(hashedPassword, password string) error {
+func (ps *PasswordService) IComparePassword(hashedPassword, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password))
 }
