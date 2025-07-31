@@ -1,7 +1,7 @@
 package userpkg
 
-type UserUsecase interface {
-	IRegisterUser(user User) (User, error)
+type IUserUsecase interface {
+	RegisterUser(user User) (User, error)
 }
 
 // User Infrastructure interfaces
