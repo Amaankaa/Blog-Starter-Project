@@ -1,7 +1,9 @@
 package userpkg
 
+import "context"
+
 type IUserUsecase interface {
-	RegisterUser(user User) (User, error)
+	RegisterUser(ctx context.Context, User User) (User, error)
 }
 
 // User Infrastructure interfaces

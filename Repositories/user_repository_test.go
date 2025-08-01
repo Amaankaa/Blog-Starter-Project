@@ -7,181 +7,110 @@ import (
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
 	"github.com/stretchr/testify/suite"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// -------------------------------------------------------------------
-// Mock Password Service
-// -------------------------------------------------------------------
-
-type MockPasswordService struct{}
-
-func (m *MockPasswordService) HashPassword(password string) (string, error) {
-	return "hashed-" + password, nil
-}
-
-func (f *MockPasswordService) ComparePassword(hashed, plain string) error {
-	return nil
-}
-
-// -------------------------------------------------------------------
-// Mock Email Verifier
-// -------------------------------------------------------------------
-
-type MockEmailVerifier struct{}
-
-func (m *MockEmailVerifier) IsRealEmail(email string) (bool, error) {
-	// Always return true for testing
-	return true, nil
-}
-
-// -------------------------------------------------------------------
-// User Repository Test Suite
-// -------------------------------------------------------------------
-
-type UserRepoTestSuite struct {
+type UserRepositoryTestSuite struct {
 	suite.Suite
-	db    *mongo.Database
-	users *mongo.Collection
-	repo  *UserRepository
+	db         *mongo.Database
+	collection *mongo.Collection
+	repo       *UserRepository
+	ctx        context.Context
 }
 
-func TestUserRepoTestSuite(t *testing.T) {
+func TestUserRepositoryTestSuite(t *testing.T) {
 	if testMongoClient == nil {
-		t.Skip("MongoDB client not available")
+		t.Skip("MongoDB not available")
 	}
-	suite.Run(t, new(UserRepoTestSuite))
+	suite.Run(t, new(UserRepositoryTestSuite))
 }
 
-func (ts *UserRepoTestSuite) SetupTest() {
-	dbName := "blog_test_db_" + primitive.NewObjectID().Hex()
-	ts.db = testMongoClient.Database(dbName)
-	ts.users = ts.db.Collection("users")
+func (s *UserRepositoryTestSuite) SetupTest() {
+	s.ctx = context.Background()
+	dbName := "user_repo_test_" + primitive.NewObjectID().Hex()
+	s.db = testMongoClient.Database(dbName)
+	s.collection = s.db.Collection("users")
+	s.repo = NewUserRepository(s.collection)
 
-	index := mongo.IndexModel{
-		Keys:    bson.D{{Key: "username", Value: 1}},
-		Options: options.Index().SetUnique(true),
-	}
-	_, err := ts.users.Indexes().CreateOne(context.Background(), index)
-	ts.Require().NoError(err)
-
-	// Add both mocks
-	mockPassword := &MockPasswordService{}
-	mockEmailVerifier := &MockEmailVerifier{}
-	ts.repo = NewUserRepository(ts.users, mockPassword, mockEmailVerifier)
+	// unique index for email & username to prevent duplicates (optional)
+	_ = s.collection.Drop(s.ctx) // cleanup collection if needed
 }
 
-func (ts *UserRepoTestSuite) TearDownTest() {
+func (s *UserRepositoryTestSuite) TearDownTest() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = ts.db.Drop(ctx)
+	_ = s.db.Drop(ctx)
 }
 
-// -------------------------------------------------------------------
-// Individual Tests
-// -------------------------------------------------------------------
-
-func (ts *UserRepoTestSuite) TestAssignsAdminRoleToFirstUser() {
+func (s *UserRepositoryTestSuite) TestCreateUser() {
 	user := userpkg.User{
-		Username: "admin",
-		Password: "Str0ng!Pass",
-		Email:    "admin@example.com",
-		Fullname: "Admin User",
+		Username: "testuser",
+		Password: "hashed-pass",
+		Email:    "test@example.com",
+		Fullname: "Test User",
 	}
 
-	storedUser, err := ts.repo.RegisterUser(user)
-	ts.Require().NoError(err)
-	ts.Equal("admin", storedUser.Role)
+	created, err := s.repo.CreateUser(s.ctx, user)
+	s.Require().NoError(err)
+	s.NotEmpty(created.ID)
+	s.Equal("testuser", created.Username)
+	s.Equal("test@example.com", created.Email)
+	s.Equal("", created.Password) // should be scrubbed
+	s.False(created.IsVerified)
 }
 
-func (ts *UserRepoTestSuite) TestRegistersUserAsNormalUser() {
-	_, err := ts.repo.RegisterUser(userpkg.User{
-		Username: "admin",
-		Password: "Str0ng!Pass",
-		Email:    "admin@example.com",
-		Fullname: "Admin",
+func (s *UserRepositoryTestSuite) TestExistsByUsername() {
+	// Insert a user
+	_, err := s.repo.CreateUser(s.ctx, userpkg.User{
+		Username: "checkuser",
+		Password: "secret",
+		Email:    "check@example.com",
+		Fullname: "Checker",
 	})
-	ts.Require().NoError(err)
+	s.Require().NoError(err)
 
-	newUser := userpkg.User{
-		Username: "johndoe",
-		Password: "Str0ng!Pass",
-		Email:    "john@example.com",
-		Fullname: "John Doe",
-	}
+	found, err := s.repo.ExistsByUsername(s.ctx, "checkuser")
+	s.Require().NoError(err)
+	s.True(found)
 
-	storedUser, err := ts.repo.RegisterUser(newUser)
-	ts.Require().NoError(err)
-	ts.NotEmpty(storedUser.ID)
-	ts.Equal("johndoe", storedUser.Username)
-	ts.Equal("user", storedUser.Role)
-	ts.False(storedUser.IsVerified)
-	ts.Empty(storedUser.Password)
+	notFound, err := s.repo.ExistsByUsername(s.ctx, "ghost")
+	s.Require().NoError(err)
+	s.False(notFound)
 }
 
-func (ts *UserRepoTestSuite) TestRejectsWeakPassword() {
-	user := userpkg.User{
-		Username: "weakman",
-		Password: "123",
-		Email:    "weak@example.com",
-		Fullname: "Weak Man",
-	}
+func (s *UserRepositoryTestSuite) TestExistsByEmail() {
+	_, err := s.repo.CreateUser(s.ctx, userpkg.User{
+		Username: "emailer",
+		Password: "secret",
+		Email:    "mail@example.com",
+		Fullname: "Mailer",
+	})
+	s.Require().NoError(err)
 
-	_, err := ts.repo.RegisterUser(user)
-	ts.Require().Error(err)
+	found, err := s.repo.ExistsByEmail(s.ctx, "mail@example.com")
+	s.Require().NoError(err)
+	s.True(found)
+
+	notFound, err := s.repo.ExistsByEmail(s.ctx, "notfound@example.com")
+	s.Require().NoError(err)
+	s.False(notFound)
 }
 
-func (ts *UserRepoTestSuite) TestRejectsInvalidEmail() {
-	user := userpkg.User{
-		Username: "bademail",
-		Password: "Str0ng!Pass",
-		Email:    "not-an-email",
-		Fullname: "Bad Email",
-	}
+func (s *UserRepositoryTestSuite) TestCountUsers() {
+	initial, err := s.repo.CountUsers(s.ctx)
+	s.Require().NoError(err)
+	s.Equal(int64(0), initial)
 
-	_, err := ts.repo.RegisterUser(user)
-	ts.Require().Error(err)
-}
+	_, err = s.repo.CreateUser(s.ctx, userpkg.User{
+		Username: "counter",
+		Password: "pw",
+		Email:    "count@example.com",
+		Fullname: "Counter",
+	})
+	s.Require().NoError(err)
 
-func (ts *UserRepoTestSuite) TestRejectsDuplicateEmail() {
-	first := userpkg.User{
-		Username: "original",
-		Password: "Str0ng!Pass",
-		Email:    "same@example.com",
-		Fullname: "Original User",
-	}
-	_, err := ts.repo.RegisterUser(first)
-	ts.Require().NoError(err)
-
-	dupe := userpkg.User{
-		Username: "copycat",
-		Password: "Str0ng!Pass",
-		Email:    "same@example.com",
-		Fullname: "Copy Cat",
-	}
-	_, err = ts.repo.RegisterUser(dupe)
-	ts.Require().Error(err)
-}
-
-func (ts *UserRepoTestSuite) TestRejectsDuplicateUsername() {
-	first := userpkg.User{
-		Username: "reused",
-		Password: "Str0ng!Pass",
-		Email:    "reused1@example.com",
-		Fullname: "First",
-	}
-	_, err := ts.repo.RegisterUser(first)
-	ts.Require().NoError(err)
-
-	dupe := userpkg.User{
-		Username: "reused",
-		Password: "Str0ng!Pass",
-		Email:    "reused2@example.com",
-		Fullname: "Second",
-	}
-	_, err = ts.repo.RegisterUser(dupe)
-	ts.Require().Error(err)
+	count, err := s.repo.CountUsers(s.ctx)
+	s.Require().NoError(err)
+	s.Equal(int64(1), count)
 }

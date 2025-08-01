@@ -2,12 +2,8 @@ package repositories
 
 import (
 	"context"
-	"errors"
-	"time"
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
-	utils "github.com/Amaankaa/Blog-Starter-Project/Domain/utils"
-	services "github.com/Amaankaa/Blog-Starter-Project/Domain/services"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -15,97 +11,57 @@ import (
 )
 
 type UserRepository struct {
-	collection      *mongo.Collection
-	passwordService userpkg.IPasswordService
-	emailVerifier   services.IEmailVerifier
+	collection *mongo.Collection
 }
 
-func NewUserRepository(
-	collection *mongo.Collection,
-	passwordService userpkg.IPasswordService,
-	emailVerifier services.IEmailVerifier,
-) *UserRepository {
+func NewUserRepository(collection *mongo.Collection) *UserRepository {
 	return &UserRepository{
-		collection:      collection,
-		passwordService: passwordService,
-		emailVerifier:   emailVerifier,
+		collection: collection,
 	}
 }
 
-func (ur *UserRepository) RegisterUser(user userpkg.User) (userpkg.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-	defer cancel()
-
-	// Check if fields are empty
-	if user.Username == "" || user.Password == "" || user.Email == "" || user.Fullname == "" {
-		return userpkg.User{}, errors.New("fields cannot be empty")
+// Check if username exists
+func (ur *UserRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
+	var user userpkg.User
+	err := ur.collection.FindOne(ctx, bson.M{"username": username}).Decode(&user)
+	if err == mongo.ErrNoDocuments {
+		return false, nil
 	}
-
-	// Check if provided email is valid format
-	if !utils.IsValidEmail(user.Email) {
-		return userpkg.User{}, errors.New("invalid email format")
-	}
-
-	// ✅ Check if the email is real using the email verifier
-	isReal, err := ur.emailVerifier.IsRealEmail(user.Email)
 	if err != nil {
-		return userpkg.User{}, errors.New("failed to verify email: " + err.Error())
+		return false, err
 	}
-	if !isReal {
-		return userpkg.User{}, errors.New("email address is not reachable")
-	}
+	return true, nil
+}
 
-	// Check if provided password is strong
-	if !utils.IsStrongPassword(user.Password) {
-		return userpkg.User{}, errors.New("password must be at least 8 characters with upper, lower, number, and special char")
+// Check if email exists
+func (ur *UserRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
+	var user userpkg.User
+	err := ur.collection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
+	if err == mongo.ErrNoDocuments {
+		return false, nil
 	}
-
-	// Check if the username already exists
-	var existingUsername userpkg.User
-	err = ur.collection.FindOne(ctx, bson.M{"username": user.Username}).Decode(&existingUsername)
-	if err == nil {
-		return userpkg.User{}, errors.New("username already taken")
-	}
-	if err != mongo.ErrNoDocuments {
-		return userpkg.User{}, err
-	}
-
-	// Check if the email already exists
-	var existingEmail userpkg.User
-	err = ur.collection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&existingEmail)
-	if err == nil {
-		return userpkg.User{}, errors.New("email already taken")
-	}
-	if err != mongo.ErrNoDocuments {
-		return userpkg.User{}, err
-	}
-
-	// Check if this is the first user (make admin if so)
-	userCount, err := ur.collection.CountDocuments(ctx, bson.M{})
 	if err != nil {
-		return userpkg.User{}, err
+		return false, err
 	}
-	if userCount == 0 {
-		user.Role = "admin"
-	} else {
-		user.Role = "user"
-	}
+	return true, nil
+}
 
-	// Hash the password before storing
-	hashedPassword, err := ur.passwordService.HashPassword(user.Password)
-	if err != nil {
-		return userpkg.User{}, err
-	}
-	user.Password = hashedPassword
+// Count how many users exist (used to decide admin role)
+func (ur *UserRepository) CountUsers(ctx context.Context) (int64, error) {
+	count, err := ur.collection.CountDocuments(ctx, bson.M{})
+	return count, err
+}
 
+// Save new user to DB
+func (ur *UserRepository) CreateUser(ctx context.Context, user userpkg.User) (userpkg.User, error) {
 	user.ID = primitive.NewObjectID()
 	user.IsVerified = false
 
-	_, err = ur.collection.InsertOne(ctx, user)
+	_, err := ur.collection.InsertOne(ctx, user)
 	if err != nil {
 		return userpkg.User{}, err
 	}
 
-	user.Password = ""
+	user.Password = "" // don’t return hashed password
 	return user, nil
 }
