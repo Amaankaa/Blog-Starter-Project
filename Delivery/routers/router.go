@@ -13,5 +13,6 @@ func SetupRouter(controller *controllers.Controller) *gin.Engine {
 	r.POST("/register", controller.Register)
 	r.POST("/login", controller.Login)
 
+	//Use the AuthMiddleWare for protected routes
 	return r
 }
