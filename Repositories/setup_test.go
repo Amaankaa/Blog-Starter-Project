@@ -1,4 +1,3 @@
-// test_setup_test.go
 package repositories
 
 import (

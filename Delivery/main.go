@@ -18,12 +18,11 @@ import (
 )
 
 func main() {
-	// Load environment variables from .env file
+	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	// Get MongoDB URI from environment variable
 	uri := os.Getenv("MONGODB_URI")
 	if uri == "" {
 		log.Fatal("MONGODB_URI not set in environment")
@@ -38,33 +37,31 @@ func main() {
 		log.Fatalf("Failed to connect to MongoDB: %v", err)
 	}
 
-	// Select database and collections
 	db := client.Database("blog_db")
 	userCollection := db.Collection("users")
 
-	// Initialize services
+	// Initialize infrastructure services
 	passwordService := infrastructure.NewPasswordService()
 
-	// ✅ Initialize email verifier
 	emailVerifier, err := infrastructure.NewMailboxLayerVerifier()
 	if err != nil {
 		log.Fatalf("Failed to initialize email verifier: %v", err)
 	}
 
-	// Initialize repositories
-	userRepo := repositories.NewUserRepository(userCollection, passwordService, emailVerifier)
+	//Repositories: only take collection (not services)
+	userRepo := repositories.NewUserRepository(userCollection)
 
-	// Initialize usecases
-	userUsecase := usecases.NewUserUsecase(userRepo)
+	//Usecase: handles business logic, gets all dependencies
+	userUsecase := usecases.NewUserUsecase(userRepo, passwordService, emailVerifier)
 
-	// Initialize controllers
+	//Controller
 	controller := controllers.NewController(userUsecase)
 
-	// Setup router
+	//Router
 	r := routers.SetupRouter(controller)
 
-	// Start server
-	log.Println("Server starting on :8080")
+	//Start Server
+	log.Println("Server running on :8080")
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}

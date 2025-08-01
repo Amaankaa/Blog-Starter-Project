@@ -1,7 +1,11 @@
 package userpkg
 
+import "context"
 
-// UserRepository interface defines user data access operations
+// IUserRepository defines user data access operations
 type IUserRepository interface {
-	RegisterUser(user User) (User, error)
+	ExistsByUsername(ctx context.Context, username string) (bool, error)
+	ExistsByEmail(ctx context.Context, email string) (bool, error)
+	CountUsers(ctx context.Context) (int64, error)
+	CreateUser(ctx context.Context, user User) (User, error)
 }
