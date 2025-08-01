@@ -39,9 +39,12 @@ func main() {
 
 	db := client.Database("blog_db")
 	userCollection := db.Collection("users")
+	tokenCollection := db.Collection("tokens")
 
 	// Initialize infrastructure services
 	passwordService := infrastructure.NewPasswordService()
+	jwtService := infrastructure.NewJWTService()
+
 
 	emailVerifier, err := infrastructure.NewMailboxLayerVerifier()
 	if err != nil {
@@ -50,9 +53,11 @@ func main() {
 
 	//Repositories: only take collection (not services)
 	userRepo := repositories.NewUserRepository(userCollection)
+	tokenRepo := repositories.NewTokenRepository(tokenCollection)
+
 
 	//Usecase: handles business logic, gets all dependencies
-	userUsecase := usecases.NewUserUsecase(userRepo, passwordService, emailVerifier)
+	userUsecase := usecases.NewUserUsecase(userRepo, passwordService, tokenRepo, jwtService, emailVerifier)
 
 	//Controller
 	controller := controllers.NewController(userUsecase)
