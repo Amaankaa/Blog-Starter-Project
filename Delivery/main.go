@@ -40,11 +40,11 @@ func main() {
 	db := client.Database("blog_db")
 	userCollection := db.Collection("users")
 	tokenCollection := db.Collection("tokens")
+	blogCollection := db.Collection("blogs")
 
 	// Initialize infrastructure services
 	passwordService := infrastructure.NewPasswordService()
 	jwtService := infrastructure.NewJWTService()
-
 
 	emailVerifier, err := infrastructure.NewMailboxLayerVerifier()
 	if err != nil {
@@ -54,16 +54,21 @@ func main() {
 	//Repositories: only take collection (not services)
 	userRepo := repositories.NewUserRepository(userCollection)
 	tokenRepo := repositories.NewTokenRepository(tokenCollection)
-
+	blogRepo := repositories.NewBlogRepository(blogCollection)
 
 	//Usecase: handles business logic, gets all dependencies
 	userUsecase := usecases.NewUserUsecase(userRepo, passwordService, tokenRepo, jwtService, emailVerifier)
+	blogUsecase := usecases.NewBlogUsecase(blogRepo)
 
 	//Controller
 	controller := controllers.NewController(userUsecase)
+	blogController := controllers.NewBlogController(blogUsecase)
+
+	// Initialize AuthMiddleware
+	authMiddleware := infrastructure.NewAuthMiddleware(jwtService)
 
 	//Router
-	r := routers.SetupRouter(controller)
+	r := routers.SetupRouter(controller, blogController, authMiddleware)
 
 	//Start Server
 	log.Println("Server running on :8080")
