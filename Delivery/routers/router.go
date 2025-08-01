@@ -11,6 +11,7 @@ func SetupRouter(controller *controllers.Controller) *gin.Engine {
 
 	// Public routes
 	r.POST("/register", controller.Register)
+	r.POST("/login", controller.Login)
 
 	return r
 }
