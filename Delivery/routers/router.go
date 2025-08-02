@@ -13,10 +13,15 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	// Public routes
 	r.POST("/register", controller.Register)
 	r.POST("/login", controller.Login)
+	r.POST("/forgot-password", controller.ForgotPassword)
+	r.POST("/verify-otp", controller.VerifyOTP)
+	r.POST("/reset-password", controller.ResetPassword)
 
 	// Protected routes
 	protected := r.Group("")
 	protected.Use(authMiddleware.AuthMiddleware())
+	
+
 
 	// Blog routes
 	protected.POST("/blog/create", blogController.CreateBlog)
