@@ -64,6 +64,16 @@ func (m *MockUserRepo) FindByID(ctx context.Context, userID string) (userpkg.Use
 	return userpkg.User{}, errors.New("user not found")
 }
 
+func (m *MockUserRepo) UpdatePasswordByEmail(ctx context.Context, email, newHashedPassword string) error {
+	for i, u := range m.users {
+		if u.Email == email {
+			m.users[i].Password = newHashedPassword
+			return nil
+		}
+	}
+	return errors.New("user not found")
+}
+
 // -------------------------------------------------------------
 // Mock Password Service
 // -------------------------------------------------------------
@@ -100,6 +110,17 @@ func (m *MockEmailVerifier) IsRealEmail(email string) (bool, error) {
 }
 
 // -------------------------------------------------------------
+// Mock Email Sender
+// -------------------------------------------------------------
+
+type MockEmailSender struct{}
+
+func (m *MockEmailSender) SendEmail(to, subject, content string) error {
+    return nil // always succeed in tests
+}
+
+
+// -------------------------------------------------------------
 // Mock Token Repo
 // -------------------------------------------------------------
 
@@ -129,6 +150,56 @@ func (m *MockTokenRepo) DeleteByRefreshToken(ctx context.Context, refreshToken s
 		}
 	}
 	return nil
+}
+
+// -------------------------------------------------------------
+// Mock Password Reset Repo
+// -------------------------------------------------------------
+type MockPasswordResetRepo struct {
+    resets map[string]userpkg.PasswordReset
+}
+
+func (m *MockPasswordResetRepo) StoreResetRequest(ctx context.Context, reset userpkg.PasswordReset) error {
+    if m.resets == nil {
+        m.resets = make(map[string]userpkg.PasswordReset)
+    }
+    m.resets[reset.Email] = reset
+    return nil
+}
+
+func (m *MockPasswordResetRepo) GetResetRequest(ctx context.Context, email string) (userpkg.PasswordReset, error) {
+    if m.resets == nil {
+        return userpkg.PasswordReset{}, errors.New("no reset found")
+    }
+    reset, ok := m.resets[email]
+    if !ok {
+        return userpkg.PasswordReset{}, errors.New("no reset found")
+    }
+    return reset, nil
+}
+
+func (m *MockPasswordResetRepo) DeleteResetRequest(ctx context.Context, email string) error {
+    if m.resets == nil {
+        return nil
+    }
+    delete(m.resets, email)
+    return nil
+}
+
+func (m *MockPasswordResetRepo) IncrementAttemptCount(ctx context.Context, email string) error {
+    if m.resets == nil {
+        return errors.New("no reset data")
+    }
+
+    reset, ok := m.resets[email]
+    if !ok {
+        return errors.New("reset not found")
+    }
+
+    reset.AttemptCount++
+    m.resets[email] = reset // update the stored value
+
+    return nil
 }
 
 // -------------------------------------------------------------
@@ -173,8 +244,19 @@ func (s *UserUsecaseTestSuite) SetupTest() {
 	s.mockEmail = &MockEmailVerifier{}
 	mockTokenRepo := &MockTokenRepo{}
 	mockJWT := &MockJWTService{}
+	mockEmailSender := &MockEmailSender{}
+	mockResetRepo := &MockPasswordResetRepo{}
 
-	s.usecase = NewUserUsecase(s.mockRepo, s.mockPassword, mockTokenRepo, mockJWT, s.mockEmail)
+	s.usecase = NewUserUsecase(
+		s.mockRepo,
+		s.mockPassword,
+		mockTokenRepo,
+		mockJWT,
+		s.mockEmail,
+		mockEmailSender,
+		mockResetRepo,
+	)
+
 	s.ctx = context.Background()
 }
 
@@ -341,17 +423,138 @@ func (s *UserUsecaseTestSuite) TestRefreshTokenSuccess() {
 	mockTokenRepo := &MockTokenRepo{
 		tokens: []userpkg.Token{
 			{
+				UserID:       user.ID,
 				RefreshToken: "refresh-token",
 				ExpiresAt:    time.Now().Add(1 * time.Hour),
 			},
 		},
 	}
 	mockJWT := &MockJWTService{UserID: user.ID.Hex()}
+	mockEmailSender := &MockEmailSender{}
+	mockResetRepo := &MockPasswordResetRepo{}
 
-	s.usecase = NewUserUsecase(s.mockRepo, s.mockPassword, mockTokenRepo, mockJWT, s.mockEmail)
+	s.usecase = NewUserUsecase(
+		s.mockRepo,
+		s.mockPassword,
+		mockTokenRepo,
+		mockJWT,
+		s.mockEmail,
+		mockEmailSender,
+		mockResetRepo,
+	)
 
 	result, err := s.usecase.RefreshToken(s.ctx, "refresh-token")
 	s.Require().NoError(err)
 	s.Equal("access-token", result.AccessToken)
 	s.Equal("refresh-token", result.RefreshToken)
+}
+
+// -------------------------------------------------------------
+// Forgot Password Flow Tests
+// -------------------------------------------------------------
+
+func (s *UserUsecaseTestSuite) TestSendResetOTP_Success() {
+	email := "otpuser@example.com"
+	s.mockRepo.users = append(s.mockRepo.users, userpkg.User{
+		Email: email,
+	})
+
+	err := s.usecase.SendResetOTP(s.ctx, email)
+	s.Require().NoError(err)
+
+	stored, err := s.usecase.passwordResetRepo.GetResetRequest(s.ctx, email)
+	s.Require().NoError(err)
+	s.Equal(email, stored.Email)
+	s.Len(stored.OTP, 6)
+	s.False(time.Now().After(stored.ExpiresAt)) // Still valid
+	s.Equal(0, stored.AttemptCount)
+}
+
+func (s *UserUsecaseTestSuite) TestSendResetOTP_EmailNotFound() {
+	err := s.usecase.SendResetOTP(s.ctx, "notfound@example.com")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "email not registered")
+}
+
+func (s *UserUsecaseTestSuite) TestVerifyOTP_Success() {
+	email := "verify@example.com"
+	otp := "123456"
+
+	_ = s.usecase.passwordResetRepo.StoreResetRequest(s.ctx, userpkg.PasswordReset{
+		Email:        email,
+		OTP:          otp,
+		ExpiresAt:    time.Now().Add(10 * time.Minute),
+		AttemptCount: 0,
+	})
+
+	err := s.usecase.VerifyOTP(s.ctx, email, otp)
+	s.Require().NoError(err)
+
+	_, err = s.usecase.passwordResetRepo.GetResetRequest(s.ctx, email)
+	s.Require().Error(err) // Should be deleted
+}
+
+func (s *UserUsecaseTestSuite) TestVerifyOTP_Expired() {
+	email := "expired@example.com"
+
+	_ = s.usecase.passwordResetRepo.StoreResetRequest(s.ctx, userpkg.PasswordReset{
+		Email:        email,
+		OTP:          "expired",
+		ExpiresAt:    time.Now().Add(-1 * time.Minute),
+		AttemptCount: 0,
+	})
+
+	err := s.usecase.VerifyOTP(s.ctx, email, "expired")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "OTP expired")
+}
+
+func (s *UserUsecaseTestSuite) TestVerifyOTP_MaxAttempts() {
+	email := "max@example.com"
+
+	_ = s.usecase.passwordResetRepo.StoreResetRequest(s.ctx, userpkg.PasswordReset{
+		Email:        email,
+		OTP:          "654321",
+		ExpiresAt:    time.Now().Add(10 * time.Minute),
+		AttemptCount: 5,
+	})
+
+	err := s.usecase.VerifyOTP(s.ctx, email, "wrong")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "too many invalid attempts")
+}
+
+func (s *UserUsecaseTestSuite) TestVerifyOTP_InvalidOTP() {
+	email := "wrongotp@example.com"
+
+	_ = s.usecase.passwordResetRepo.StoreResetRequest(s.ctx, userpkg.PasswordReset{
+		Email:        email,
+		OTP:          "777777",
+		ExpiresAt:    time.Now().Add(10 * time.Minute),
+		AttemptCount: 2,
+	})
+
+	err := s.usecase.VerifyOTP(s.ctx, email, "123456")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "invalid OTP")
+
+	// Check if AttemptCount incremented
+	stored, _ := s.usecase.passwordResetRepo.GetResetRequest(s.ctx, email)
+	s.Equal(3, stored.AttemptCount)
+}
+
+func (s *UserUsecaseTestSuite) TestResetPassword_Success() {
+	email := "resetme@example.com"
+
+	s.mockRepo.users = append(s.mockRepo.users, userpkg.User{
+		Email:    email,
+		Password: "old",
+	})
+
+	err := s.usecase.ResetPassword(s.ctx, email, "newpass123")
+	s.Require().NoError(err)
+
+	user, err := s.mockRepo.GetUserByLogin(s.ctx, email)
+	s.Require().NoError(err)
+	s.Equal("hashed-newpass123", user.Password)
 }

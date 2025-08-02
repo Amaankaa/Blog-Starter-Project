@@ -93,3 +93,65 @@ func (ctrl *Controller) RefreshToken(c *gin.Context) {
 
 	c.JSON(http.StatusOK, newTokens)
 }
+
+func (ctrl *Controller) ForgotPassword(c *gin.Context) {
+    var req struct{ Email string }
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+    defer cancel()
+
+    if err := ctrl.userUsecase.SendResetOTP(ctx, req.Email); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"message": "OTP sent"})
+}
+
+func (ctrl *Controller) VerifyOTP(c *gin.Context) {
+    var req struct {
+        Email string `json:"email"`
+        OTP   string `json:"otp"`
+    }
+
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+    defer cancel()
+
+    if err := ctrl.userUsecase.VerifyOTP(ctx, req.Email, req.OTP); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"message": "OTP verified, you can reset your password."})
+}
+
+func (ctrl *Controller) ResetPassword(c *gin.Context) {
+    var req struct {
+        Email       string `json:"email"`
+        NewPassword string `json:"new_password"`
+    }
+
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+        return
+    }
+
+    ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+    defer cancel()
+
+    if err := ctrl.userUsecase.ResetPassword(ctx, req.Email, req.NewPassword); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
+}

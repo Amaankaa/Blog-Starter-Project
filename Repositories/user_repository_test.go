@@ -1,49 +1,69 @@
-package repositories
+package repositories_test
 
 import (
 	"context"
+	"log"
+	"os"
 	"testing"
 	"time"
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
+	repositories "github.com/Amaankaa/Blog-Starter-Project/Repositories"
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/suite"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type UserRepositoryTestSuite struct {
+type userRepositoryTestSuite struct {
 	suite.Suite
 	db         *mongo.Database
-	collection *mongo.Collection
-	repo       *UserRepository
+	client     *mongo.Client
 	ctx        context.Context
+	cancel     context.CancelFunc
+	collection *mongo.Collection
+	repo       *repositories.UserRepository
 }
 
 func TestUserRepositoryTestSuite(t *testing.T) {
-	if testMongoClient == nil {
-		t.Skip("MongoDB not available")
+	suite.Run(t, new(userRepositoryTestSuite))
+}
+
+func (s *userRepositoryTestSuite) SetupSuite() {
+	err := godotenv.Load("../.env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
 	}
-	suite.Run(t, new(UserRepositoryTestSuite))
+
+	mongoURI := os.Getenv("MONGODB_URI")
+	if mongoURI == "" {
+		log.Fatal("MONGODB_URI is not set")
+	}
+
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(mongoURI))
+	s.Require().NoError(err)
+
+	s.client = client
+	s.db = client.Database("test_blog_db")
+	s.collection = s.db.Collection(testUserCollection)
+	s.repo = repositories.NewUserRepository(s.collection)
+
+	s.ctx, s.cancel = context.WithTimeout(context.Background(), 10*time.Second)
 }
 
-func (s *UserRepositoryTestSuite) SetupTest() {
-	s.ctx = context.Background()
-	dbName := "user_repo_test_" + primitive.NewObjectID().Hex()
-	s.db = testMongoClient.Database(dbName)
-	s.collection = s.db.Collection("users")
-	s.repo = NewUserRepository(s.collection)
-
-	// unique index for email & username to prevent duplicates (optional)
-	_ = s.collection.Drop(s.ctx) // cleanup collection if needed
+func (s *userRepositoryTestSuite) TearDownSuite() {
+	s.collection.Drop(s.ctx)
+	s.cancel()
+	s.client.Disconnect(s.ctx)
 }
 
-func (s *UserRepositoryTestSuite) TearDownTest() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_ = s.db.Drop(ctx)
+func (s *userRepositoryTestSuite) SetupTest() {
+	_, err := s.collection.DeleteMany(s.ctx, bson.M{})
+	s.Require().NoError(err)
 }
 
-func (s *UserRepositoryTestSuite) TestCreateUser() {
+func (s *userRepositoryTestSuite) TestCreateUser() {
 	user := userpkg.User{
 		Username: "testuser",
 		Password: "hashed-pass",
@@ -56,12 +76,11 @@ func (s *UserRepositoryTestSuite) TestCreateUser() {
 	s.NotEmpty(created.ID)
 	s.Equal("testuser", created.Username)
 	s.Equal("test@example.com", created.Email)
-	s.Equal("", created.Password) // should be scrubbed
+	s.Equal("", created.Password) // password scrubbed
 	s.False(created.IsVerified)
 }
 
-func (s *UserRepositoryTestSuite) TestExistsByUsername() {
-	// Insert a user
+func (s *userRepositoryTestSuite) TestExistsByUsername() {
 	_, err := s.repo.CreateUser(s.ctx, userpkg.User{
 		Username: "checkuser",
 		Password: "secret",
@@ -79,7 +98,7 @@ func (s *UserRepositoryTestSuite) TestExistsByUsername() {
 	s.False(notFound)
 }
 
-func (s *UserRepositoryTestSuite) TestExistsByEmail() {
+func (s *userRepositoryTestSuite) TestExistsByEmail() {
 	_, err := s.repo.CreateUser(s.ctx, userpkg.User{
 		Username: "emailer",
 		Password: "secret",
@@ -97,7 +116,7 @@ func (s *UserRepositoryTestSuite) TestExistsByEmail() {
 	s.False(notFound)
 }
 
-func (s *UserRepositoryTestSuite) TestCountUsers() {
+func (s *userRepositoryTestSuite) TestCountUsers() {
 	initial, err := s.repo.CountUsers(s.ctx)
 	s.Require().NoError(err)
 	s.Equal(int64(0), initial)
