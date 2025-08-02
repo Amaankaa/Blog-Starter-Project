@@ -33,6 +33,7 @@ func TestUserUsecaseTestSuite(t *testing.T) {
 
 func (s *UserUsecaseTestSuite) SetupTest() {
 	s.ctx = context.Background()
+
 	s.mockUserRepo = new(mocks.IUserRepository)
 	s.mockPasswordSvc = new(mocks.IPasswordService)
 	s.mockTokenRepo = new(mocks.ITokenRepository)
@@ -50,7 +51,46 @@ func (s *UserUsecaseTestSuite) SetupTest() {
 		s.mockEmailSender,
 		s.mockResetRepo,
 	)
+
+	// ===== DEFAULT EXPECTATIONS =====
+
+	// Email Verifier always returns valid
+	s.mockEmailVerifier.
+		On("IsRealEmail", mock.Anything).
+		Return(true, nil)
+
+	// Password Service defaults
+	s.mockPasswordSvc.
+		On("HashPassword", mock.Anything).
+		Return("hashed-password", nil)
+
+	s.mockPasswordSvc.
+		On("ComparePassword", mock.Anything, mock.Anything).
+		Return(nil)
+
+	// JWT Service defaults
+	s.mockJWTService.
+		On("ValidateToken", mock.Anything).
+		Return(map[string]interface{}{"_id": "mock-id"}, nil)
+
+	s.mockJWTService.
+		On("GenerateToken", mock.Anything, mock.Anything, mock.Anything).
+		Return(userpkg.TokenResult{
+			AccessToken:  "access-token",
+			RefreshToken: "refresh-token",
+		}, nil)
+
+	// Email Sender default
+	s.mockEmailSender.
+		On("SendEmail", mock.Anything, mock.Anything, mock.Anything).
+		Return(nil)
+
+	// Password Reset Repo default
+	s.mockResetRepo.
+		On("DeleteResetRequest", mock.Anything, mock.Anything).
+		Return(nil)
 }
+
 
 // ---------------------------------------------
 // REGISTER TESTS
@@ -107,7 +147,7 @@ func (s *UserUsecaseTestSuite) TestRegisterSecondUserAsNormal() {
 			u.Email == expectedUser.Email &&
 			u.Password == expectedUser.Password &&
 			u.Role == expectedUser.Role
-	})).Return(nil)
+	})).Return(expectedUser, nil)
 
 	_, err := s.usecase.RegisterUser(s.ctx, req)
 
