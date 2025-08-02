@@ -44,9 +44,8 @@ func (bu *BlogUsecase) CreateBlog(ctx context.Context, blog *blogpkg.Blog) (*blo
 
 	blog.AuthorID = authorIDStr
 	blog.ID = primitive.NewObjectID().Hex()
-	now := time.Now().Format(time.RFC3339)
-	blog.CreatedAt = now
-	blog.UpdatedAt = now
+	blog.CreatedAt = time.Now()
+	blog.UpdatedAt = time.Now()
 
 	createdBlog, err := bu.blogRepo.CreateBlog(blog)
 	if err != nil {

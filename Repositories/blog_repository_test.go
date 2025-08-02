@@ -75,8 +75,8 @@ func (s *blogRepositoryTestSuite) TestCreateBlog() {
 		Content:   "This is a test blog post.",
 		AuthorID:  "author-1",
 		Tags:      []string{"go", "mongo"},
-		CreatedAt: time.Now().Format(time.RFC3339),
-		UpdatedAt: time.Now().Format(time.RFC3339),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	created, err := s.blogRepo.CreateBlog(blog)
