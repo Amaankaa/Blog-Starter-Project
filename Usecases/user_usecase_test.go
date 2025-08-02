@@ -310,3 +310,68 @@ func (s *UserUsecaseTestSuite) TestResetPassword_Success() {
 	err := s.usecase.ResetPassword(s.ctx, email, newPass)
 	s.Require().NoError(err)
 }
+
+func (s *UserUsecaseTestSuite) TestRefreshToken_Success() {
+	userID := primitive.NewObjectID()
+	token := userpkg.Token{
+		UserID:       userID,
+		RefreshToken: "refresh-token",
+		ExpiresAt:    time.Now().Add(1 * time.Hour),
+	}
+
+	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, "refresh-token").Return(token, nil)
+	s.mockUserRepo.On("FindByID", s.ctx, userID.Hex()).Return(userpkg.User{
+		ID:       userID,
+		Username: "john",
+		Role:     "user",
+	}, nil)
+	s.mockJWTService.On("GenerateToken", userID.Hex(), "john", "user").Return(userpkg.TokenResult{
+		AccessToken:  "access-token",
+		RefreshToken: "refresh-token",
+	}, nil)
+
+	result, err := s.usecase.RefreshToken(s.ctx, "refresh-token")
+	s.Require().NoError(err)
+	s.Equal("access-token", result.AccessToken)
+	s.Equal("refresh-token", result.RefreshToken)
+}
+
+func (s *UserUsecaseTestSuite) TestRefreshToken_InvalidToken() {
+	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, "invalid-token").
+		Return(userpkg.Token{}, errors.New("not found"))
+
+	_, err := s.usecase.RefreshToken(s.ctx, "invalid-token")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "refresh token invalid")
+}
+
+func (s *UserUsecaseTestSuite) TestRefreshToken_TokenExpired() {
+	userID := primitive.NewObjectID()
+	token := userpkg.Token{
+		UserID:       userID,
+		RefreshToken: "refresh-token",
+		ExpiresAt:    time.Now().Add(-10 * time.Minute), // expired
+	}
+
+	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, "refresh-token").Return(token, nil)
+
+	_, err := s.usecase.RefreshToken(s.ctx, "refresh-token")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "refresh token expired")
+}
+
+func (s *UserUsecaseTestSuite) TestRefreshToken_UserNotFound() {
+	userID := primitive.NewObjectID()
+	token := userpkg.Token{
+		UserID:       userID,
+		RefreshToken: "refresh-token",
+		ExpiresAt:    time.Now().Add(1 * time.Hour),
+	}
+
+	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, "refresh-token").Return(token, nil)
+	s.mockUserRepo.On("FindByID", s.ctx, userID.Hex()).Return(userpkg.User{}, errors.New("not found"))
+
+	_, err := s.usecase.RefreshToken(s.ctx, "refresh-token")
+	s.Require().Error(err)
+	s.Contains(err.Error(), "user not found")
+}
