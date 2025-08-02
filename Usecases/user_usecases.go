@@ -17,7 +17,9 @@ type UserUsecase struct {
 	passwordSvc    userpkg.IPasswordService
 	tokenRepo      userpkg.ITokenRepository
 	emailVerifier  services.IEmailVerifier
+	emailSender		services.IEmailSender
 	jwtService	userpkg.IJWTService
+	passwordResetRepo userpkg.IPasswordResetRepository
 }
 
 func NewUserUsecase(
@@ -26,6 +28,8 @@ func NewUserUsecase(
 	tokenRepo      userpkg.ITokenRepository,
 	jwtService		userpkg.IJWTService,
 	emailVerifier services.IEmailVerifier,
+	emailSender services.IEmailSender,
+	passwordResetRepo 	userpkg.IPasswordResetRepository,
 ) *UserUsecase {
 	return &UserUsecase{
 		userRepo:      userRepo,
@@ -33,6 +37,8 @@ func NewUserUsecase(
 		tokenRepo: tokenRepo,
 		jwtService: jwtService,
 		emailVerifier: emailVerifier,
+		emailSender: emailSender,
+		passwordResetRepo: passwordResetRepo,
 	}
 }
 
@@ -175,4 +181,68 @@ func (uu *UserUsecase) RefreshToken(ctx context.Context, refreshToken string) (u
 	})
 
 	return tokens, nil
+}
+
+func (u *UserUsecase) SendResetOTP(ctx context.Context, email string) error {
+    exists, _ := u.userRepo.ExistsByEmail(ctx, email)
+    if !exists {
+        return errors.New("email not registered")
+    }
+
+    otp := utils.GenerateOTP(6)
+
+    err := u.emailSender.SendEmail(email, "Your OTP Code", "Your OTP: "+otp)
+    if err != nil {
+        return err
+    }
+	
+	//Hash OTP before storing
+	hashedOTP, err := u.passwordSvc.HashPassword(otp)
+    if err != nil {
+        return err
+    }
+
+    reset := userpkg.PasswordReset{
+		Email:       email,
+		OTP:         hashedOTP,
+		ExpiresAt:   time.Now().Add(10 * time.Minute),
+		AttemptCount: 0,
+	}
+    return u.passwordResetRepo.StoreResetRequest(ctx, reset)
+}
+
+func (u *UserUsecase) VerifyOTP(ctx context.Context, email, otp string) error {
+    stored, err := u.passwordResetRepo.GetResetRequest(ctx, email)
+    if err != nil {
+        return errors.New("no reset request found")
+    }
+
+    if time.Now().After(stored.ExpiresAt) {
+        _ = u.passwordResetRepo.DeleteResetRequest(ctx, email)
+        return errors.New("OTP expired")
+    }
+
+    if stored.AttemptCount >= 5 {
+        _ = u.passwordResetRepo.DeleteResetRequest(ctx, email)
+        return errors.New("too many invalid attempts — OTP expired")
+    }
+
+    if u.passwordSvc.ComparePassword(stored.OTP, otp) != nil {
+        // increment attempt count
+        _ = u.passwordResetRepo.IncrementAttemptCount(ctx, email)
+        return errors.New("invalid OTP")
+    }
+
+    // OTP is valid — delete it
+    _ = u.passwordResetRepo.DeleteResetRequest(ctx, email)
+    return nil
+}
+
+
+func (u *UserUsecase) ResetPassword(ctx context.Context, email, newPassword string) error {
+	hashed, err := u.passwordSvc.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	return u.userRepo.UpdatePasswordByEmail(ctx, email, hashed)
 }

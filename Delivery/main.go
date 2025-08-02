@@ -41,6 +41,7 @@ func main() {
 	userCollection := db.Collection("users")
 	tokenCollection := db.Collection("tokens")
 	blogCollection := db.Collection("blogs")
+	passwordResetCollection := db.Collection("password_resets")
 
 	// Initialize infrastructure services
 	passwordService := infrastructure.NewPasswordService()
@@ -50,14 +51,24 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize email verifier: %v", err)
 	}
-
+	emailSender := infrastructure.NewBrevoEmailSender()
+	
 	//Repositories: only take collection (not services)
 	userRepo := repositories.NewUserRepository(userCollection)
 	tokenRepo := repositories.NewTokenRepository(tokenCollection)
 	blogRepo := repositories.NewBlogRepository(blogCollection)
+	passwordResetRepo := repositories.NewPasswordResetRepo(passwordResetCollection, userCollection)
 
 	//Usecase: handles business logic, gets all dependencies
-	userUsecase := usecases.NewUserUsecase(userRepo, passwordService, tokenRepo, jwtService, emailVerifier)
+	userUsecase := usecases.NewUserUsecase(
+	userRepo,
+	passwordService,
+	tokenRepo,
+	jwtService,
+	emailVerifier,
+	emailSender,
+	passwordResetRepo,
+)
 	blogUsecase := usecases.NewBlogUsecase(blogRepo)
 
 	//Controller

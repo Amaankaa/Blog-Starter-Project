@@ -6,6 +6,9 @@ type IUserUsecase interface {
 	RegisterUser(ctx context.Context, user User) (User, error)
 	LoginUser(ctx context.Context, login string, password string) (User, string, string, error)
 	RefreshToken(ctx context.Context, refreshToken string)  (TokenResult, error)
+	SendResetOTP(ctx context.Context, email string) error
+	VerifyOTP(ctx context.Context, email, otp string) error
+	ResetPassword(ctx context.Context, email, newPassword string) error
 }
 
 // User Infrastructure interfaces

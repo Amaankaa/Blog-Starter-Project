@@ -32,3 +32,10 @@ type TokenResult struct {
 	AccessExpiresAt  time.Time
 	RefreshExpiresAt time.Time
 }
+
+type PasswordReset struct {
+    Email       string    `bson:"email"`
+    OTP         string    `bson:"otp"`
+    ExpiresAt   time.Time `bson:"expiresat"`
+    AttemptCount int      `bson:"attemptcount"`
+}
