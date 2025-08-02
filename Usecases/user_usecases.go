@@ -195,10 +195,16 @@ func (u *UserUsecase) SendResetOTP(ctx context.Context, email string) error {
     if err != nil {
         return err
     }
+	
+	//Hash OTP before storing
+	hashedOTP, err := u.passwordSvc.HashPassword(otp)
+    if err != nil {
+        return err
+    }
 
     reset := userpkg.PasswordReset{
 		Email:       email,
-		OTP:         otp,
+		OTP:         hashedOTP,
 		ExpiresAt:   time.Now().Add(10 * time.Minute),
 		AttemptCount: 0,
 	}
@@ -221,7 +227,7 @@ func (u *UserUsecase) VerifyOTP(ctx context.Context, email, otp string) error {
         return errors.New("too many invalid attempts — OTP expired")
     }
 
-    if stored.OTP != otp {
+    if u.passwordSvc.ComparePassword(stored.OTP, otp) != nil {
         // increment attempt count
         _ = u.passwordResetRepo.IncrementAttemptCount(ctx, email)
         return errors.New("invalid OTP")
