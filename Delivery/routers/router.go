@@ -25,6 +25,8 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 
 	// Blog routes
 	protected.POST("/blog/create", blogController.CreateBlog)
-
+	protected.GET("/blogs", blogController.GetAllBlogs)
+	protected.GET("/blog/:id", blogController.GetBlogByID)
+	
 	return r
 }

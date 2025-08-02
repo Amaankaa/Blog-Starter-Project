@@ -3,7 +3,10 @@
 package mocks
 
 import (
+	context "context"
+
 	blogpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/blog"
+
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -35,6 +38,64 @@ func (_m *IBlogRepository) CreateBlog(blog *blogpkg.Blog) (*blogpkg.Blog, error)
 
 	if rf, ok := ret.Get(1).(func(*blogpkg.Blog) error); ok {
 		r1 = rf(blog)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetAllBlogs provides a mock function with given fields: ctx, pagination
+func (_m *IBlogRepository) GetAllBlogs(ctx context.Context, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
+	ret := _m.Called(ctx, pagination)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllBlogs")
+	}
+
+	var r0 blogpkg.PaginationResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error)); ok {
+		return rf(ctx, pagination)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, blogpkg.PaginationRequest) blogpkg.PaginationResponse); ok {
+		r0 = rf(ctx, pagination)
+	} else {
+		r0 = ret.Get(0).(blogpkg.PaginationResponse)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, blogpkg.PaginationRequest) error); ok {
+		r1 = rf(ctx, pagination)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetBlogByID provides a mock function with given fields: id
+func (_m *IBlogRepository) GetBlogByID(id string) (*blogpkg.Blog, error) {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetBlogByID")
+	}
+
+	var r0 *blogpkg.Blog
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (*blogpkg.Blog, error)); ok {
+		return rf(id)
+	}
+	if rf, ok := ret.Get(0).(func(string) *blogpkg.Blog); ok {
+		r0 = rf(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*blogpkg.Blog)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(id)
 	} else {
 		r1 = ret.Error(1)
 	}
