@@ -84,6 +84,38 @@ func (s *UserUsecaseTestSuite) TestRegisterFirstUserAsAdmin() {
 	s.Equal("", created.Password)
 }
 
+func (s *UserUsecaseTestSuite) TestRegisterSecondUserAsNormal() {
+	req := userpkg.User{
+		Username: "normaluser",
+		Email:    "normal@example.com",
+		Password: "StrongPass123!",
+	}
+
+	// First user already exists (simulate count = 1)
+	s.mockUserRepo.On("CountUsers", s.ctx).Return(int64(1), nil)
+	s.mockUserRepo.On("ExistsByUsername", s.ctx, req.Username).Return(false, nil)
+	s.mockUserRepo.On("ExistsByEmail", s.ctx, req.Email).Return(false, nil)
+	s.mockPasswordSvc.On("ComparePassword", req.Password).Return(nil)
+	s.mockPasswordSvc.On("HashPassword", req.Password).Return("hashedpassword", nil)
+
+	expectedUser := req
+	expectedUser.Password = "hashedpassword"
+	expectedUser.Role = "user"
+
+	s.mockUserRepo.On("CreateUser", s.ctx, mock.MatchedBy(func(u userpkg.User) bool {
+		return u.Username == expectedUser.Username &&
+			u.Email == expectedUser.Email &&
+			u.Password == expectedUser.Password &&
+			u.Role == expectedUser.Role
+	})).Return(nil)
+
+	_, err := s.usecase.RegisterUser(s.ctx, req)
+
+	s.NoError(err)
+	s.mockUserRepo.AssertExpectations(s.T())
+	s.mockPasswordSvc.AssertExpectations(s.T())
+}
+
 func (s *UserUsecaseTestSuite) TestRejectsInvalidEmailFormat() {
 	user := userpkg.User{
 		Username: "user1",
@@ -139,6 +171,15 @@ func (s *UserUsecaseTestSuite) TestRejectsDuplicateEmail() {
 	_, err := s.usecase.RegisterUser(s.ctx, user)
 	s.Require().Error(err)
 	s.Contains(err.Error(), "email already taken")
+}
+
+func (s *UserUsecaseTestSuite) TestRejectsEmptyFields() {
+	req := userpkg.User{} // All fields empty
+
+	_, err := s.usecase.RegisterUser(s.ctx, req)
+
+	s.Error(err)
+	s.Contains(err.Error(), "all fields are required")
 }
 
 func (s *UserUsecaseTestSuite) TestFailsIfEmailVerifierErrors() {
