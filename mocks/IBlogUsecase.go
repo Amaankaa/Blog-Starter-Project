@@ -45,6 +45,64 @@ func (_m *IBlogUsecase) CreateBlog(ctx context.Context, blog *blogpkg.Blog) (*bl
 	return r0, r1
 }
 
+// GetAllBlogs provides a mock function with given fields: ctx, pagination
+func (_m *IBlogUsecase) GetAllBlogs(ctx context.Context, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
+	ret := _m.Called(ctx, pagination)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAllBlogs")
+	}
+
+	var r0 blogpkg.PaginationResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error)); ok {
+		return rf(ctx, pagination)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, blogpkg.PaginationRequest) blogpkg.PaginationResponse); ok {
+		r0 = rf(ctx, pagination)
+	} else {
+		r0 = ret.Get(0).(blogpkg.PaginationResponse)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, blogpkg.PaginationRequest) error); ok {
+		r1 = rf(ctx, pagination)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetBlogByID provides a mock function with given fields: ctx, id
+func (_m *IBlogUsecase) GetBlogByID(ctx context.Context, id string) (*blogpkg.Blog, error) {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetBlogByID")
+	}
+
+	var r0 *blogpkg.Blog
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*blogpkg.Blog, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *blogpkg.Blog); ok {
+		r0 = rf(ctx, id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*blogpkg.Blog)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewIBlogUsecase creates a new instance of IBlogUsecase. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewIBlogUsecase(t interface {
