@@ -131,3 +131,44 @@ func (s *tokenRepositoryTestSuite) TestDeleteByRefreshToken() {
 	assert.Error(err)
 	assert.Equal(mongo.ErrNoDocuments, err)
 }
+
+func (s *tokenRepositoryTestSuite) TestDeleteTokensByUserID() {
+	assert := assert.New(s.T())
+
+	// Arrange
+	userID := primitive.NewObjectID()
+
+	tokens := []interface{}{
+		userpkg.Token{
+			UserID:       userID,
+			AccessToken:  "access-token-1",
+			RefreshToken: "refresh-token-1",
+			CreatedAt:    time.Now(),
+			ExpiresAt:    time.Now().Add(24 * time.Hour),
+		},
+		userpkg.Token{
+			UserID:       userID,
+			AccessToken:  "access-token-2",
+			RefreshToken: "refresh-token-2",
+			CreatedAt:    time.Now(),
+			ExpiresAt:    time.Now().Add(24 * time.Hour),
+		},
+	}
+
+	_, err := s.collection.InsertMany(s.ctx, tokens)
+	assert.NoError(err)
+
+	// Make sure tokens exist before delete
+	countBefore, err := s.collection.CountDocuments(s.ctx, bson.M{"user_id": userID})
+	assert.NoError(err)
+	assert.Equal(int64(2), countBefore)
+
+	// Act
+	err = s.repo.DeleteTokensByUserID(userID.Hex())
+	assert.NoError(err)
+
+	// Assert
+	countAfter, err := s.collection.CountDocuments(s.ctx, bson.M{"user_id": userID})
+	assert.NoError(err)
+	assert.Equal(int64(0), countAfter)
+}

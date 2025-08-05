@@ -4,8 +4,9 @@ import (
 	"context"
 
 	tokenpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type TokenRepository struct {
@@ -35,4 +36,14 @@ func (r *TokenRepository) FindByRefreshToken(ctx context.Context, refreshToken s
 		return tokenpkg.Token{}, err
 	}
 	return token, nil
+}
+
+func (r *TokenRepository) DeleteTokensByUserID(userID string) error {
+	objID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+	filter := bson.M{"user_id": objID}
+	_, err = r.collection.DeleteMany(context.TODO(), filter)
+	return err
 }

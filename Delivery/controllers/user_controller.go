@@ -155,3 +155,23 @@ func (ctrl *Controller) ResetPassword(c *gin.Context) {
 
     c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
 }
+
+func (ctrl *Controller) Logout(c *gin.Context) {
+	userID := c.GetString("userID") // assuming middleware sets this
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+		return
+	}
+
+	err := ctrl.userUsecase.Logout(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Logout failed"})
+		return
+	}
+
+	// Optionally clear tokens from client
+	c.SetCookie("access_token", "", -1, "/", "localhost", false, true)
+	c.SetCookie("refresh_token", "", -1, "/", "localhost", false, true)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+}

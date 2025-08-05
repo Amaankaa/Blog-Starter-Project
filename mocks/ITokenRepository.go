@@ -32,6 +32,24 @@ func (_m *ITokenRepository) DeleteByRefreshToken(ctx context.Context, refreshTok
 	return r0
 }
 
+// DeleteTokensByUserID provides a mock function with given fields: userID
+func (_m *ITokenRepository) DeleteTokensByUserID(userID string) error {
+	ret := _m.Called(userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteTokensByUserID")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // FindByRefreshToken provides a mock function with given fields: ctx, refreshToken
 func (_m *ITokenRepository) FindByRefreshToken(ctx context.Context, refreshToken string) (userpkg.Token, error) {
 	ret := _m.Called(ctx, refreshToken)
