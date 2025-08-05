@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"os"
 	"context"
 	"net/http"
 	"time"
@@ -167,6 +168,10 @@ func (ctrl *Controller) Logout(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Logout failed"})
 		return
+	}
+	cookieDomain := os.Getenv("COOKIE_DOMAIN")
+	if cookieDomain == "" {
+		cookieDomain = "localhost"
 	}
 
 	// Optionally clear tokens from client

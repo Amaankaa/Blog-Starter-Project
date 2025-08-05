@@ -22,7 +22,7 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	protected.Use(authMiddleware.AuthMiddleware())
 	
 	//User routes
-	protected.POST("/logout", authMiddleware.AuthMiddleware(), controller.Logout)
+	protected.POST("/logout", controller.Logout)
 
 	// Blog routes
 	protected.POST("/blog/create", blogController.CreateBlog)

@@ -164,7 +164,7 @@ func (s *tokenRepositoryTestSuite) TestDeleteTokensByUserID() {
 	assert.Equal(int64(2), countBefore)
 
 	// Act
-	err = s.repo.DeleteTokensByUserID(userID.Hex())
+	err = s.repo.DeleteTokensByUserID(s.ctx, userID.Hex())
 	assert.NoError(err)
 
 	// Assert

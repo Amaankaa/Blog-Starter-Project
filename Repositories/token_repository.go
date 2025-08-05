@@ -38,12 +38,12 @@ func (r *TokenRepository) FindByRefreshToken(ctx context.Context, refreshToken s
 	return token, nil
 }
 
-func (r *TokenRepository) DeleteTokensByUserID(userID string) error {
+func (r *TokenRepository) DeleteTokensByUserID(ctx context.Context, userID string) error {
 	objID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return err
 	}
 	filter := bson.M{"user_id": objID}
-	_, err = r.collection.DeleteMany(context.TODO(), filter)
+	_, err = r.collection.DeleteMany(ctx, filter)
 	return err
 }
