@@ -79,3 +79,23 @@ func (br *BlogRepository) GetAllBlogs(ctx context.Context, pagination blogpkg.Pa
 		TotalPages: totalPages,
 	}, nil
 }
+
+func (br *BlogRepository) UpdateBlog(id string, blog *blogpkg.Blog) (*blogpkg.Blog, error) {
+	filter := bson.M{"id": id}
+	update := bson.M{"$set": blog}
+	result := br.collection.FindOneAndUpdate(br.ctx, filter, update)
+	if result.Err() != nil {
+		return nil, result.Err()
+	}
+
+	return blog, nil
+}
+
+func (br *BlogRepository) DeleteBlog(id string) error {
+	filter := bson.M{"id": id}
+	_, err := br.collection.DeleteOne(br.ctx, filter)
+	if err != nil {
+		return err
+	}
+	return nil
+}

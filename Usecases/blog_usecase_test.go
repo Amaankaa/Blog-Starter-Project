@@ -89,7 +89,7 @@ func (s *BlogUsecaseSuite) TestGetAllBlogs_Success() {
 		},
 		Total:      2,
 		Page:       2,
-		Limit:   5,
+		Limit:      5,
 		TotalPages: 1,
 	}
 	s.blogRepo.On("GetAllBlogs", mock.Anything, pagination).Return(expected, nil).Once()
@@ -166,5 +166,90 @@ func (s *BlogUsecaseSuite) TestGetBlogByID_ErrorRepo() {
 	assert.Error(err)
 	assert.Nil(result)
 	assert.EqualError(err, "not found")
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestUpdateBlog_Success() {
+	assert := assert.New(s.T())
+	ctx := context.WithValue(context.Background(), "user_id", "author-1")
+	id := "blog-1"
+	oldBlog := &blogpkg.Blog{
+		ID: id, Title: "Old Title", Content: "Old Content", AuthorID: "author-1", Tags: []string{"t1"}, CreatedAt: time.Now().Add(-time.Hour), UpdatedAt: time.Now().Add(-time.Hour),
+	}
+	updated := &blogpkg.Blog{
+		Title: "New Title", Content: "New Content", Tags: []string{"t1", "t2"},
+	}
+	finalBlog := &blogpkg.Blog{
+		ID: id, Title: "New Title", Content: "New Content", AuthorID: "author-1", Tags: []string{"t1", "t2"}, CreatedAt: oldBlog.CreatedAt, UpdatedAt: time.Now(),
+	}
+	s.blogRepo.On("GetBlogByID", id).Return(oldBlog, nil).Once()
+	s.blogRepo.On("UpdateBlog", id, mock.AnythingOfType("*blogpkg.Blog")).Return(finalBlog, nil).Once()
+	result, err := s.blogUC.UpdateBlog(ctx, id, updated)
+	assert.NoError(err)
+	assert.Equal(finalBlog.Title, result.Title)
+	assert.Equal(finalBlog.Content, result.Content)
+	assert.ElementsMatch(finalBlog.Tags, result.Tags)
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestUpdateBlog_NotFound() {
+	assert := assert.New(s.T())
+	ctx := context.WithValue(context.Background(), "user_id", "author-1")
+	id := "not-exist"
+	s.blogRepo.On("GetBlogByID", id).Return(nil, errors.New("not found")).Once()
+	updated := &blogpkg.Blog{Title: "T", Content: "C", Tags: []string{"t1"}}
+	result, err := s.blogUC.UpdateBlog(ctx, id, updated)
+	assert.Error(err)
+	assert.Nil(result)
+	assert.Contains(err.Error(), "not found")
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestUpdateBlog_Unauthorized() {
+	assert := assert.New(s.T())
+	ctx := context.WithValue(context.Background(), "user_id", "other-user")
+	id := "blog-1"
+	oldBlog := &blogpkg.Blog{ID: id, Title: "T", Content: "C", AuthorID: "author-1", Tags: []string{"t1"}, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	s.blogRepo.On("GetBlogByID", id).Return(oldBlog, nil).Once()
+	updated := &blogpkg.Blog{Title: "T2", Content: "C2", Tags: []string{"t2"}}
+	result, err := s.blogUC.UpdateBlog(ctx, id, updated)
+	assert.Error(err)
+	assert.Nil(result)
+	assert.Contains(err.Error(), "unauthorized")
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestDeleteBlog_Success() {
+	assert := assert.New(s.T())
+	ctx := context.WithValue(context.Background(), "user_id", "author-1")
+	id := "blog-1"
+	blog := &blogpkg.Blog{ID: id, Title: "T", Content: "C", AuthorID: "author-1", Tags: []string{"t1"}, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	s.blogRepo.On("GetBlogByID", id).Return(blog, nil).Once()
+	s.blogRepo.On("DeleteBlog", id).Return(nil).Once()
+	err := s.blogUC.DeleteBlog(ctx, id)
+	assert.NoError(err)
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestDeleteBlog_NotFound() {
+	assert := assert.New(s.T())
+	ctx := context.WithValue(context.Background(), "user_id", "author-1")
+	id := "not-exist"
+	s.blogRepo.On("GetBlogByID", id).Return(nil, errors.New("not found")).Once()
+	err := s.blogUC.DeleteBlog(ctx, id)
+	assert.Error(err)
+	assert.Contains(err.Error(), "not found")
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestDeleteBlog_Unauthorized() {
+	assert := assert.New(s.T())
+	ctx := context.WithValue(context.Background(), "user_id", "other-user")
+	id := "blog-1"
+	blog := &blogpkg.Blog{ID: id, Title: "T", Content: "C", AuthorID: "author-1", Tags: []string{"t1"}, CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	s.blogRepo.On("GetBlogByID", id).Return(blog, nil).Once()
+	err := s.blogUC.DeleteBlog(ctx, id)
+	assert.Error(err)
+	assert.Contains(err.Error(), "unauthorized")
 	s.blogRepo.AssertExpectations(s.T())
 }

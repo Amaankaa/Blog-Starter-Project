@@ -135,7 +135,7 @@ func (s *blogRepositoryTestSuite) TestGetAllBlogs() {
 
 	// Test: Get all blogs, page 1, limit 2
 	pagination := blogpkg.PaginationRequest{
-		Page:     1,
+		Page:  1,
 		Limit: 2,
 	}
 	resp, err := s.blogRepo.GetAllBlogs(s.ctx, pagination)
@@ -203,4 +203,89 @@ func (s *blogRepositoryTestSuite) TestGetBlogByID_NotFound() {
 	assert := assert.New(s.T())
 	_, err := s.blogRepo.GetBlogByID("unknown-id")
 	assert.Error(err)
+}
+
+func (s *blogRepositoryTestSuite) TestUpdateBlog_Success() {
+	assert := assert.New(s.T())
+	// Insert a blog
+	blog := &blogpkg.Blog{
+		ID:        "id-1",
+		Title:     "Original Title",
+		Content:   "Original Content",
+		AuthorID:  "author-1",
+		Tags:      []string{"go"},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.CreateBlog(blog)
+	assert.NoError(err)
+
+	// Update the blog
+	updated := &blogpkg.Blog{
+		ID:        "id-1",
+		Title:     "Updated Title",
+		Content:   "Updated Content",
+		AuthorID:  "author-1",
+		Tags:      []string{"go", "update"},
+		CreatedAt: blog.CreatedAt,
+		UpdatedAt: time.Now(),
+	}
+	result, err := s.blogRepo.UpdateBlog(blog.ID, updated)
+	assert.NoError(err)
+	assert.Equal(updated.Title, result.Title)
+	assert.Equal(updated.Content, result.Content)
+	assert.ElementsMatch(updated.Tags, result.Tags)
+
+	// Check in DB
+	var found blogpkg.Blog
+	err = s.collection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	assert.NoError(err)
+	assert.Equal(updated.Title, found.Title)
+	assert.Equal(updated.Content, found.Content)
+	assert.ElementsMatch(updated.Tags, found.Tags)
+}
+
+func (s *blogRepositoryTestSuite) TestUpdateBlog_NotFound() {
+	assert := assert.New(s.T())
+	updated := &blogpkg.Blog{
+		ID:        "not-exist",
+		Title:     "Updated Title",
+		Content:   "Updated Content",
+		AuthorID:  "author-1",
+		Tags:      []string{"go", "update"},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.UpdateBlog("not-exist", updated)
+	assert.Error(err)
+}
+
+func (s *blogRepositoryTestSuite) TestDeleteBlog_Success() {
+	assert := assert.New(s.T())
+	// Insert a blog
+	blog := &blogpkg.Blog{
+		ID:        "id-1",
+		Title:     "To Delete",
+		Content:   "Delete me",
+		AuthorID:  "author-1",
+		Tags:      []string{"go"},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.CreateBlog(blog)
+	assert.NoError(err)
+
+	err = s.blogRepo.DeleteBlog(blog.ID)
+	assert.NoError(err)
+
+	// Should not be found in DB
+	var found blogpkg.Blog
+	err = s.collection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	assert.Error(err)
+}
+
+func (s *blogRepositoryTestSuite) TestDeleteBlog_NotFound() {
+	assert := assert.New(s.T())
+	err := s.blogRepo.DeleteBlog("not-exist")
+	assert.NoError(err) // Mongo DeleteOne returns no error if nothing deleted
 }
