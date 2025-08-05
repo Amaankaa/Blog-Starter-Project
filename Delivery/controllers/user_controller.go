@@ -175,8 +175,8 @@ func (ctrl *Controller) Logout(c *gin.Context) {
 	}
 
 	// Optionally clear tokens from client
-	c.SetCookie("access_token", "", -1, "/", "localhost", false, true)
-	c.SetCookie("refresh_token", "", -1, "/", "localhost", false, true)
+	c.SetCookie("access_token", "", -1, "/", cookieDomain, false, true)
+	c.SetCookie("refresh_token", "", -1, "/", cookieDomain, false, true)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }
