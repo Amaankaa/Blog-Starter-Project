@@ -599,7 +599,7 @@ func (s *UserUsecaseTestSuite) TestLogout_Success() {
 	userID := primitive.NewObjectID().Hex()
 
 	s.mockTokenRepo.
-		On("DeleteTokensByUserID", userID).
+		On("DeleteTokensByUserID", mock.Anything, userID). // <-- Fix here
 		Return(nil)
 
 	// Act
@@ -607,7 +607,7 @@ func (s *UserUsecaseTestSuite) TestLogout_Success() {
 
 	// Assert
 	s.NoError(err)
-	s.mockTokenRepo.AssertCalled(s.T(), "DeleteTokensByUserID", userID)
+	s.mockTokenRepo.AssertCalled(s.T(), "DeleteTokensByUserID", mock.Anything, userID) // <-- Fix here
 }
 
 func (s *UserUsecaseTestSuite) TestLogout_FailureFromTokenRepo() {
@@ -616,7 +616,7 @@ func (s *UserUsecaseTestSuite) TestLogout_FailureFromTokenRepo() {
 	expectedErr := errors.New("failed to delete tokens")
 
 	s.mockTokenRepo.
-		On("DeleteTokensByUserID", userID).
+		On("DeleteTokensByUserID", mock.Anything, userID). // <-- Fix here
 		Return(expectedErr)
 
 	// Act
@@ -624,5 +624,5 @@ func (s *UserUsecaseTestSuite) TestLogout_FailureFromTokenRepo() {
 
 	// Assert
 	s.EqualError(err, expectedErr.Error())
-	s.mockTokenRepo.AssertCalled(s.T(), "DeleteTokensByUserID", userID)
+	s.mockTokenRepo.AssertCalled(s.T(), "DeleteTokensByUserID", mock.Anything, userID) // <-- Fix here
 }
