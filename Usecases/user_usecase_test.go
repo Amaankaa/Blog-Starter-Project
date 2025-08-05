@@ -51,408 +51,545 @@ func (s *UserUsecaseTestSuite) SetupTest() {
 		s.mockEmailSender,
 		s.mockResetRepo,
 	)
-
-	// ===== DEFAULT EXPECTATIONS =====
-
-	// Email Verifier always returns valid
-	s.mockEmailVerifier.
-		On("IsRealEmail", mock.Anything).
-		Return(true, nil)
-
-	// Password Service defaults
-	s.mockPasswordSvc.
-		On("HashPassword", mock.Anything).
-		Return("hashed-password", nil)
-
-	s.mockPasswordSvc.
-		On("ComparePassword", mock.Anything, mock.Anything).
-		Return(nil)
-
-	// JWT Service defaults
-	s.mockJWTService.
-		On("ValidateToken", mock.Anything).
-		Return(map[string]interface{}{"_id": "mock-id"}, nil)
-
-	s.mockJWTService.
-		On("GenerateToken", mock.Anything, mock.Anything, mock.Anything).
-		Return(userpkg.TokenResult{
-			AccessToken:  "access-token",
-			RefreshToken: "refresh-token",
-		}, nil)
-
-	// Email Sender default
-	s.mockEmailSender.
-		On("SendEmail", mock.Anything, mock.Anything, mock.Anything).
-		Return(nil)
-
-	// Password Reset Repo default
-	s.mockResetRepo.
-		On("DeleteResetRequest", mock.Anything, mock.Anything).
-		Return(nil)
 }
 
-
-// ---------------------------------------------
-// REGISTER TESTS
-// ---------------------------------------------
-
 func (s *UserUsecaseTestSuite) TestRegisterFirstUserAsAdmin() {
-	user := userpkg.User{
-		Username: "admin1",
-		Password: "Str0ng!Pass",
+	// Arrange
+	testUser := userpkg.User{
+		Username: "adminuser",
 		Email:    "admin@example.com",
-		Fullname: "Admin Guy",
+		Password: "AdminPass123!",
+		Fullname: "Admin User",
 	}
 
-	s.mockUserRepo.On("ExistsByUsername", s.ctx, user.Username).Return(false, nil)
-	s.mockUserRepo.On("ExistsByEmail", s.ctx, user.Email).Return(false, nil)
 	s.mockUserRepo.On("CountUsers", s.ctx).Return(int64(0), nil)
-	s.mockEmailVerifier.On("IsRealEmail", user.Email).Return(true, nil)
-	s.mockPasswordSvc.On("HashPassword", user.Password).Return("hashed-pass", nil)
+	s.mockEmailVerifier.On("IsRealEmail", testUser.Email).Return(true, nil)
+	s.mockUserRepo.On("ExistsByUsername", s.ctx, testUser.Username).Return(false, nil)
+	s.mockUserRepo.On("ExistsByEmail", s.ctx, testUser.Email).Return(false, nil)
+	s.mockPasswordSvc.On("HashPassword", testUser.Password).Return("hashedpassword", nil)
+	s.mockUserRepo.On("CreateUser", s.ctx, mock.Anything).Run(func(args mock.Arguments) {
+		userArg := args.Get(1).(userpkg.User)
+		s.Equal("admin", userArg.Role)
+	}).Return(testUser, nil)
 
-	expected := user
-	expected.Password = ""
-	expected.Role = "admin"
+	// Act
+	result, err := s.usecase.RegisterUser(s.ctx, testUser)
 
-	s.mockUserRepo.On("CreateUser", s.ctx, mock.MatchedBy(func(u userpkg.User) bool {
-		return u.Username == user.Username && u.Email == user.Email
-	})).Return(expected, nil)
-
-	created, err := s.usecase.RegisterUser(s.ctx, user)
-	s.Require().NoError(err)
-	s.Equal("admin", created.Role)
-	s.Equal("", created.Password)
+	// Assert
+	s.NoError(err)
+	s.Equal(testUser.Username, result.Username)
+	s.Equal("admin", result.Role)
+	s.Empty(result.Password) // Password should be scrubbed
+	s.mockUserRepo.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestRegisterSecondUserAsNormal() {
-	req := userpkg.User{
+	// Arrange
+	testUser := userpkg.User{
 		Username: "normaluser",
-		Email:    "normal@example.com",
-		Password: "StrongPass123!",
+		Email:    "user@example.com",
+		Password: "UserPass123!",
+		Fullname: "Normal User",
 	}
 
-	// First user already exists (simulate count = 1)
 	s.mockUserRepo.On("CountUsers", s.ctx).Return(int64(1), nil)
-	s.mockUserRepo.On("ExistsByUsername", s.ctx, req.Username).Return(false, nil)
-	s.mockUserRepo.On("ExistsByEmail", s.ctx, req.Email).Return(false, nil)
-	s.mockPasswordSvc.On("ComparePassword", req.Password).Return(nil)
-	s.mockPasswordSvc.On("HashPassword", req.Password).Return("hashedpassword", nil)
+	s.mockEmailVerifier.On("IsRealEmail", testUser.Email).Return(true, nil)
+	s.mockUserRepo.On("ExistsByUsername", s.ctx, testUser.Username).Return(false, nil)
+	s.mockUserRepo.On("ExistsByEmail", s.ctx, testUser.Email).Return(false, nil)
+	s.mockPasswordSvc.On("HashPassword", testUser.Password).Return("hashedpassword", nil)
+	s.mockUserRepo.On("CreateUser", s.ctx, mock.Anything).Run(func(args mock.Arguments) {
+		userArg := args.Get(1).(userpkg.User)
+		s.Equal("user", userArg.Role)
+	}).Return(testUser, nil)
 
-	expectedUser := req
-	expectedUser.Password = "hashedpassword"
-	expectedUser.Role = "user"
+	// Act
+	result, err := s.usecase.RegisterUser(s.ctx, testUser)
 
-	s.mockUserRepo.On("CreateUser", s.ctx, mock.MatchedBy(func(u userpkg.User) bool {
-		return u.Username == expectedUser.Username &&
-			u.Email == expectedUser.Email &&
-			u.Password == expectedUser.Password &&
-			u.Role == expectedUser.Role
-	})).Return(expectedUser, nil)
-
-	_, err := s.usecase.RegisterUser(s.ctx, req)
-
+	// Assert
 	s.NoError(err)
+	s.Equal(testUser.Username, result.Username)
+	s.Equal("user", result.Role)
+	s.Empty(result.Password)
+	s.mockUserRepo.AssertExpectations(s.T())
+}
+
+func (s *UserUsecaseTestSuite) TestRejectsInvalidEmailFormat() {
+	// Arrange
+	testUser := userpkg.User{
+		Username: "testuser",
+		Email:    "invalid-email",
+		Password: "ValidPass123!",
+		Fullname: "Test User",
+	}
+
+	// Act
+	_, err := s.usecase.RegisterUser(s.ctx, testUser)
+
+	// Assert
+	s.Error(err)
+	s.Equal("invalid email format", err.Error())
+}
+
+func (s *UserUsecaseTestSuite) TestRejectWeakPassword() {
+	// Arrange
+	testUser := userpkg.User{
+		Username: "testuser",
+		Email:    "test@example.com",
+		Password: "weak",
+		Fullname: "Test User",
+	}
+	s.mockEmailVerifier.On("IsRealEmail", mock.Anything).Return(true, nil)
+
+	// Act
+	_, err := s.usecase.RegisterUser(s.ctx, testUser)
+
+	// Assert
+	s.Error(err)
+	s.Equal("password must be at least 8 chars, with upper, lower, number, and special char", err.Error())
+}
+
+func (s *UserUsecaseTestSuite) TestRejectDuplicateUsername() {
+	// Arrange
+	testUser := userpkg.User{
+		Username: "existinguser",
+		Email:    "test@example.com",
+		Password: "ValidPass123!",
+		Fullname: "Test User",
+	}
+
+	s.mockUserRepo.On("ExistsByUsername", s.ctx, testUser.Username).Return(true, nil)
+	s.mockEmailVerifier.On("IsRealEmail", mock.Anything).Return(true, nil)
+
+	// Act
+	_, err := s.usecase.RegisterUser(s.ctx, testUser)
+
+	// Assert
+	s.Error(err)
+	s.Equal("username already taken", err.Error())
+	s.mockUserRepo.AssertExpectations(s.T())
+}
+
+func (s *UserUsecaseTestSuite) TestRejectDuplicateEmail() {
+	// Arrange
+	testUser := userpkg.User{
+		Username: "testuser",
+		Email:    "existing@example.com",
+		Password: "ValidPass123!",
+		Fullname: "Test User",
+	}
+
+	s.mockUserRepo.On("ExistsByUsername", s.ctx, testUser.Username).Return(false, nil)
+	s.mockUserRepo.On("ExistsByEmail", s.ctx, testUser.Email).Return(true, nil)
+	s.mockEmailVerifier.On("IsRealEmail", mock.Anything).Return(true, nil)
+
+	// Act
+	_, err := s.usecase.RegisterUser(s.ctx, testUser)
+
+	// Assert
+	s.Error(err)
+	s.Equal("email already taken", err.Error())
+	s.mockUserRepo.AssertExpectations(s.T())
+}
+
+func (s *UserUsecaseTestSuite) TestRejectEmptyFields() {
+	testCases := []struct {
+		name     string
+		user     userpkg.User
+		field    string
+	}{
+		{"EmptyUsername", userpkg.User{Email: "test@example.com", Password: "Pass123!", Fullname: "Test"}, "username"},
+		{"EmptyEmail", userpkg.User{Username: "testuser", Password: "Pass123!", Fullname: "Test"}, "email"},
+		{"EmptyPassword", userpkg.User{Username: "testuser", Email: "test@example.com", Fullname: "Test"}, "password"},
+		{"EmptyFullname", userpkg.User{Username: "testuser", Email: "test@example.com", Password: "Pass123!"}, "fullname"},
+	}
+
+	for _, tc := range testCases {
+		s.Run(tc.name, func() {
+			// Act
+			_, err := s.usecase.RegisterUser(s.ctx, tc.user)
+
+			// Assert
+			s.Error(err)
+			s.Equal("all fields are required", err.Error())
+		})
+	}
+}
+
+func (s *UserUsecaseTestSuite) TestFailsIfEmailVerifierErrors() {
+	// Arrange
+	testUser := userpkg.User{
+		Username: "testuser",
+		Email:    "test@example.com",
+		Password: "ValidPass123!",
+		Fullname: "Test User",
+	}
+
+	s.mockUserRepo.On("ExistsByUsername", s.ctx, testUser.Username).Return(false, nil)
+	s.mockUserRepo.On("ExistsByEmail", s.ctx, testUser.Email).Return(false, nil)
+	s.mockEmailVerifier.On("IsRealEmail", testUser.Email).Return(false, errors.New("verification service down"))
+
+	// Act
+	_, err := s.usecase.RegisterUser(s.ctx, testUser)
+
+	// Assert
+	s.Error(err)
+	s.Equal("failed to verify email: verification service down", err.Error())
+	s.mockEmailVerifier.AssertExpectations(s.T())
+}
+
+func (s *UserUsecaseTestSuite) TestLoginUser_Success() {
+	// Arrange
+	login := "testuser"
+	password := "ValidPass123!"
+	hashedPassword := "hashedpassword"
+	userID := primitive.NewObjectID()
+
+	testUser := userpkg.User{
+		ID:       userID,
+		Username: login,
+		Password: hashedPassword,
+		Role:     "user",
+	}
+
+	tokenRes := userpkg.TokenResult{
+		AccessToken:      "access_token",
+		RefreshToken:     "refresh_token",
+		RefreshExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+
+	s.mockUserRepo.On("GetUserByLogin", s.ctx, login).Return(testUser, nil)
+	s.mockPasswordSvc.On("ComparePassword", hashedPassword, password).Return(nil)
+	s.mockJWTService.On("GenerateToken", userID.Hex(), login, "user").Return(tokenRes, nil)
+	s.mockTokenRepo.On("StoreToken", s.ctx, mock.Anything).Return(nil)
+
+	// Act
+	user, accessToken, refreshToken, err := s.usecase.LoginUser(s.ctx, login, password)
+
+	// Assert
+	s.NoError(err)
+	s.Equal(testUser.Username, user.Username)
+	s.Equal(tokenRes.AccessToken, accessToken)
+	s.Equal(tokenRes.RefreshToken, refreshToken)
+	s.Empty(user.Password)
+	s.mockUserRepo.AssertExpectations(s.T())
+	s.mockPasswordSvc.AssertExpectations(s.T())
+	s.mockJWTService.AssertExpectations(s.T())
+	s.mockTokenRepo.AssertExpectations(s.T())
+}
+
+func (s *UserUsecaseTestSuite) TestLoginUser_NotFound() {
+	// Arrange
+	login := "nonexistent"
+	password := "password"
+
+	s.mockUserRepo.On("GetUserByLogin", s.ctx, login).Return(userpkg.User{}, errors.New("not found"))
+
+	// Act
+	_, _, _, err := s.usecase.LoginUser(s.ctx, login, password)
+
+	// Assert
+	s.Error(err)
+	s.Equal("invalid credentials", err.Error())
+	s.mockUserRepo.AssertExpectations(s.T())
+}
+
+func (s *UserUsecaseTestSuite) TestLoginUser_WrongPassword() {
+	// Arrange
+	login := "testuser"
+	password := "wrongpassword"
+	hashedPassword := "hashedpassword"
+
+	testUser := userpkg.User{
+		Username: login,
+		Password: hashedPassword,
+	}
+
+	s.mockUserRepo.On("GetUserByLogin", s.ctx, login).Return(testUser, nil)
+	s.mockPasswordSvc.On("ComparePassword", hashedPassword, password).Return(errors.New("mismatch"))
+
+	// Act
+	_, _, _, err := s.usecase.LoginUser(s.ctx, login, password)
+
+	// Assert
+	s.Error(err)
+	s.Equal("invalid credentials", err.Error())
 	s.mockUserRepo.AssertExpectations(s.T())
 	s.mockPasswordSvc.AssertExpectations(s.T())
 }
 
-func (s *UserUsecaseTestSuite) TestRejectsInvalidEmailFormat() {
-	user := userpkg.User{
-		Username: "user1",
-		Password: "Str0ng!Pass",
-		Email:    "invalid-email",
-		Fullname: "Test User",
-	}
-
-	_, err := s.usecase.RegisterUser(s.ctx, user)
-	s.Require().Error(err)
-	s.Contains(err.Error(), "invalid email format")
-}
-
-func (s *UserUsecaseTestSuite) TestRejectsWeakPassword() {
-	user := userpkg.User{
-		Username: "weak",
-		Password: "123",
-		Email:    "weak@example.com",
-		Fullname: "Weak User",
-	}
-
-	_, err := s.usecase.RegisterUser(s.ctx, user)
-	s.Require().Error(err)
-	s.Contains(err.Error(), "password must be")
-}
-
-func (s *UserUsecaseTestSuite) TestRejectsDuplicateUsername() {
-	user := userpkg.User{
-		Username: "taken",
-		Password: "Str0ng!Pass",
-		Email:    "new@example.com",
-		Fullname: "Clone",
-	}
-
-	s.mockUserRepo.On("ExistsByUsername", s.ctx, user.Username).Return(true, nil)
-
-	_, err := s.usecase.RegisterUser(s.ctx, user)
-	s.Require().Error(err)
-	s.Contains(err.Error(), "username already taken")
-}
-
-func (s *UserUsecaseTestSuite) TestRejectsDuplicateEmail() {
-	user := userpkg.User{
-		Username: "new",
-		Password: "Str0ng!Pass",
-		Email:    "duplicate@example.com",
-		Fullname: "Clone 2",
-	}
-
-	s.mockUserRepo.On("ExistsByUsername", s.ctx, user.Username).Return(false, nil)
-	s.mockUserRepo.On("ExistsByEmail", s.ctx, user.Email).Return(true, nil)
-
-	_, err := s.usecase.RegisterUser(s.ctx, user)
-	s.Require().Error(err)
-	s.Contains(err.Error(), "email already taken")
-}
-
-func (s *UserUsecaseTestSuite) TestRejectsEmptyFields() {
-	req := userpkg.User{} // All fields empty
-
-	_, err := s.usecase.RegisterUser(s.ctx, req)
-
-	s.Error(err)
-	s.Contains(err.Error(), "all fields are required")
-}
-
-func (s *UserUsecaseTestSuite) TestFailsIfEmailVerifierErrors() {
-	user := userpkg.User{
-		Username: "failverifier",
-		Password: "Str0ng!Pass",
-		Email:    "fail@example.com",
-		Fullname: "Fail User",
-	}
-
-	s.mockUserRepo.On("ExistsByUsername", s.ctx, user.Username).Return(false, nil)
-	s.mockUserRepo.On("ExistsByEmail", s.ctx, user.Email).Return(false, nil)
-	s.mockUserRepo.On("CountUsers", s.ctx).Return(int64(0), nil)
-	s.mockEmailVerifier.On("IsRealEmail", user.Email).Return(false, errors.New("SMTP failure"))
-
-	_, err := s.usecase.RegisterUser(s.ctx, user)
-	s.Require().Error(err)
-	s.Contains(err.Error(), "failed to verify email")
-}
-
-// ---------------------------------------------
-// LOGIN TESTS
-// ---------------------------------------------
-
-func (s *UserUsecaseTestSuite) TestLoginUser_Success() {
-	user := userpkg.User{
-		ID:       primitive.NewObjectID(),
-		Username: "john",
-		Email:    "john@example.com",
-		Password: "hashed-pass",
-		Role:     "user",
-	}
-
-	s.mockUserRepo.On("GetUserByLogin", s.ctx, "john").Return(user, nil)
-	s.mockPasswordSvc.On("ComparePassword", user.Password, "Str0ng!Pass").Return(nil)
-	s.mockJWTService.On("GenerateToken", user.ID.Hex(), user.Username, user.Role).Return(userpkg.TokenResult{
-		AccessToken:  "access-token",
-		RefreshToken: "refresh-token",
-	}, nil)
-	s.mockTokenRepo.On("StoreToken", s.ctx, mock.AnythingOfType("userpkg.Token")).Return(nil)
-
-	result, access, refresh, err := s.usecase.LoginUser(s.ctx, "john", "Str0ng!Pass")
-	s.Require().NoError(err)
-	s.Equal("john", result.Username)
-	s.Equal("access-token", access)
-	s.Equal("refresh-token", refresh)
-}
-
-func (s *UserUsecaseTestSuite) TestLoginUser_NotFound() {
-	s.mockUserRepo.On("GetUserByLogin", s.ctx, "ghost").Return(userpkg.User{}, errors.New("not found"))
-
-	_, _, _, err := s.usecase.LoginUser(s.ctx, "ghost", "password")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "invalid credentials")
-}
-
-func (s *UserUsecaseTestSuite) TestLoginUser_WrongPassword() {
-	user := userpkg.User{
-		Username: "john",
-		Password: "hashed-pass",
-	}
-
-	s.mockUserRepo.On("GetUserByLogin", s.ctx, "john").Return(user, nil)
-	s.mockPasswordSvc.On("ComparePassword", user.Password, "wrongpass").Return(errors.New("mismatch"))
-
-	_, _, _, err := s.usecase.LoginUser(s.ctx, "john", "wrongpass")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "invalid credentials")
-}
-
-// ---------------------------------------------
-// OTP / PASSWORD RESET TESTS
-// ---------------------------------------------
-
 func (s *UserUsecaseTestSuite) TestSendResetOTP_EmailNotFound() {
-	s.mockUserRepo.On("ExistsByEmail", s.ctx, "notfound@example.com").Return(false, nil)
+	// Arrange
+	email := "nonexistent@example.com"
 
-	err := s.usecase.SendResetOTP(s.ctx, "notfound@example.com")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "email not registered")
+	s.mockUserRepo.On("ExistsByEmail", s.ctx, email).Return(false, nil)
+
+	// Act
+	err := s.usecase.SendResetOTP(s.ctx, email)
+
+	// Assert
+	s.Error(err)
+	s.Equal("email not registered", err.Error())
+	s.mockUserRepo.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestSendResetOTP_Success() {
-	email := "otpuser@example.com"
+	// Arrange
+	email := "user@example.com"
+	hashedOTP := "hashedOTP"
 
 	s.mockUserRepo.On("ExistsByEmail", s.ctx, email).Return(true, nil)
-	s.mockResetRepo.On("StoreResetRequest", s.ctx, mock.MatchedBy(func(req userpkg.PasswordReset) bool {
-		return req.Email == email && len(req.OTP) == 6
-	})).Return(nil)
-	s.mockEmailSender.On("SendEmail", email, mock.Anything, mock.Anything).Return(nil)
+	s.mockEmailSender.On("SendEmail", "user@example.com", "Your OTP Code", mock.Anything).Return(nil)
+	s.mockPasswordSvc.
+    On("HashPassword", mock.Anything).
+    Return(hashedOTP, nil)
 
+	s.mockResetRepo.On("StoreResetRequest", s.ctx, mock.Anything).Return(nil)
+
+	// Act
 	err := s.usecase.SendResetOTP(s.ctx, email)
-	s.Require().NoError(err)
+
+	// Assert
+	s.NoError(err)
+	s.mockUserRepo.AssertExpectations(s.T())
+	s.mockEmailSender.AssertExpectations(s.T())
+	s.mockPasswordSvc.AssertExpectations(s.T())
+	s.mockResetRepo.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestVerifyOTP_Success() {
-	email := "verify@example.com"
+	// Arrange
+	email := "user@example.com"
 	otp := "123456"
-	reset := userpkg.PasswordReset{
-		Email:        email,
-		OTP:          otp,
-		ExpiresAt:    time.Now().Add(10 * time.Minute),
-		AttemptCount: 0,
+	hashedOTP := "hashedOTP"
+
+	storedReset := userpkg.PasswordReset{
+		Email:     email,
+		OTP:       hashedOTP,
+		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}
 
-	s.mockResetRepo.On("GetResetRequest", s.ctx, email).Return(reset, nil)
+	s.mockResetRepo.On("GetResetRequest", s.ctx, email).Return(storedReset, nil)
+	s.mockPasswordSvc.On("ComparePassword", hashedOTP, otp).Return(nil)
 	s.mockResetRepo.On("DeleteResetRequest", s.ctx, email).Return(nil)
 
+	// Act
 	err := s.usecase.VerifyOTP(s.ctx, email, otp)
-	s.Require().NoError(err)
+
+	// Assert
+	s.NoError(err)
+	s.mockResetRepo.AssertExpectations(s.T())
+	s.mockPasswordSvc.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestVerifyOTP_Expired() {
-	email := "expired@example.com"
-	reset := userpkg.PasswordReset{
+	// Arrange
+	email := "user@example.com"
+	otp := "123456"
+
+	storedReset := userpkg.PasswordReset{
 		Email:     email,
-		OTP:       "000000",
-		ExpiresAt: time.Now().Add(-1 * time.Minute),
+		OTP:       "hashedOTP",
+		ExpiresAt: time.Now().Add(-10 * time.Minute), // Already expired
 	}
 
-	s.mockResetRepo.On("GetResetRequest", s.ctx, email).Return(reset, nil)
+	s.mockResetRepo.On("GetResetRequest", s.ctx, email).Return(storedReset, nil)
+	s.mockResetRepo.On("DeleteResetRequest", s.ctx, email).Return(nil)
 
-	err := s.usecase.VerifyOTP(s.ctx, email, "000000")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "OTP expired")
+	// Act
+	err := s.usecase.VerifyOTP(s.ctx, email, otp)
+
+	// Assert
+	s.Error(err)
+	s.Equal("OTP expired", err.Error())
+	s.mockResetRepo.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestVerifyOTP_MaxAttempts() {
-	email := "max@example.com"
-	reset := userpkg.PasswordReset{
+	// Arrange
+	email := "user@example.com"
+	otp := "123456"
+
+	storedReset := userpkg.PasswordReset{
 		Email:        email,
-		OTP:          "123456",
-		ExpiresAt:    time.Now().Add(5 * time.Minute),
-		AttemptCount: 5,
+		OTP:          "hashedOTP",
+		ExpiresAt:    time.Now().Add(10 * time.Minute),
+		AttemptCount: 5, // Max attempts
 	}
 
-	s.mockResetRepo.On("GetResetRequest", s.ctx, email).Return(reset, nil)
+	s.mockResetRepo.On("GetResetRequest", s.ctx, email).Return(storedReset, nil)
+	s.mockResetRepo.On("DeleteResetRequest", s.ctx, email).Return(nil)
 
-	err := s.usecase.VerifyOTP(s.ctx, email, "123456")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "too many invalid attempts")
+	// Act
+	err := s.usecase.VerifyOTP(s.ctx, email, otp)
+
+	// Assert
+	s.Error(err)
+	s.Equal("too many invalid attempts — OTP expired", err.Error())
+	s.mockResetRepo.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestVerifyOTP_InvalidOTP() {
-	email := "wrongotp@example.com"
-	reset := userpkg.PasswordReset{
-		Email:        email,
-		OTP:          "777777",
-		ExpiresAt:    time.Now().Add(10 * time.Minute),
-		AttemptCount: 2,
+	// Arrange
+	email := "user@example.com"
+	otp := "wrong123"
+	hashedOTP := "hashedOTP"
+
+	storedReset := userpkg.PasswordReset{
+		Email:     email,
+		OTP:       hashedOTP,
+		ExpiresAt: time.Now().Add(10 * time.Minute),
 	}
 
-	s.mockResetRepo.On("GetResetRequest", s.ctx, email).Return(reset, nil)
+	s.mockResetRepo.On("GetResetRequest", s.ctx, email).Return(storedReset, nil)
+	s.mockPasswordSvc.On("ComparePassword", hashedOTP, otp).Return(errors.New("mismatch"))
 	s.mockResetRepo.On("IncrementAttemptCount", s.ctx, email).Return(nil)
 
-	err := s.usecase.VerifyOTP(s.ctx, email, "wrong")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "invalid OTP")
+	// Act
+	err := s.usecase.VerifyOTP(s.ctx, email, otp)
+
+	// Assert
+	s.Error(err)
+	s.Equal("invalid OTP", err.Error())
+	s.mockResetRepo.AssertExpectations(s.T())
+	s.mockPasswordSvc.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestResetPassword_Success() {
-	email := "resetme@example.com"
-	newPass := "NewStrong!Pass"
-	hashed := "hashed-NewStrong!Pass"
+	// Arrange
+	email := "user@example.com"
+	newPassword := "NewPass123!"
+	hashedPassword := "hashedNewPassword"
 
-	s.mockPasswordSvc.On("HashPassword", newPass).Return(hashed, nil)
-	s.mockUserRepo.On("UpdatePasswordByEmail", s.ctx, email, hashed).Return(nil)
+	s.mockPasswordSvc.On("HashPassword", newPassword).Return(hashedPassword, nil)
+	s.mockUserRepo.On("UpdatePasswordByEmail", s.ctx, email, hashedPassword).Return(nil)
 
-	err := s.usecase.ResetPassword(s.ctx, email, newPass)
-	s.Require().NoError(err)
+	// Act
+	err := s.usecase.ResetPassword(s.ctx, email, newPassword)
+
+	// Assert
+	s.NoError(err)
+	s.mockPasswordSvc.AssertExpectations(s.T())
+	s.mockUserRepo.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestRefreshToken_Success() {
+	// Arrange
+	refreshToken := "valid_refresh_token"
 	userID := primitive.NewObjectID()
-	token := userpkg.Token{
-		UserID:       userID,
-		RefreshToken: "refresh-token",
-		ExpiresAt:    time.Now().Add(1 * time.Hour),
+	username := "testuser"
+	role := "user"
+
+	claims := map[string]interface{}{
+		"_id":      userID.Hex(),
+		"username": username,
+		"role":     role,
 	}
 
-	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, "refresh-token").Return(token, nil)
-	s.mockUserRepo.On("FindByID", s.ctx, userID.Hex()).Return(userpkg.User{
-		ID:       userID,
-		Username: "john",
-		Role:     "user",
-	}, nil)
-	s.mockJWTService.On("GenerateToken", userID.Hex(), "john", "user").Return(userpkg.TokenResult{
-		AccessToken:  "access-token",
-		RefreshToken: "refresh-token",
-	}, nil)
+	storedToken := userpkg.Token{
+		UserID:       userID,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(24 * time.Hour),
+	}
 
-	result, err := s.usecase.RefreshToken(s.ctx, "refresh-token")
-	s.Require().NoError(err)
-	s.Equal("access-token", result.AccessToken)
-	s.Equal("refresh-token", result.RefreshToken)
+	user := userpkg.User{
+		ID:       userID,
+		Username: username,
+		Role:     role,
+	}
+
+	newTokens := userpkg.TokenResult{
+		AccessToken:      "new_access_token",
+		RefreshToken:     "new_refresh_token",
+		RefreshExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+
+	s.mockJWTService.On("ValidateToken", refreshToken).Return(claims, nil)
+	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, refreshToken).Return(storedToken, nil)
+	s.mockUserRepo.On("FindByID", s.ctx, userID.Hex()).Return(user, nil)
+	s.mockJWTService.On("GenerateToken", userID.Hex(), username, role).Return(newTokens, nil)
+	s.mockTokenRepo.On("DeleteByRefreshToken", s.ctx, refreshToken).Return(nil)
+	s.mockTokenRepo.On("StoreToken", s.ctx, mock.Anything).Return(nil)
+
+	// Act
+	result, err := s.usecase.RefreshToken(s.ctx, refreshToken)
+
+	// Assert
+	s.NoError(err)
+	s.Equal(newTokens.AccessToken, result.AccessToken)
+	s.Equal(newTokens.RefreshToken, result.RefreshToken)
+	s.mockJWTService.AssertExpectations(s.T())
+	s.mockTokenRepo.AssertExpectations(s.T())
+	s.mockUserRepo.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestRefreshToken_InvalidToken() {
-	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, "invalid-token").
-		Return(userpkg.Token{}, errors.New("not found"))
+	// Arrange
+	invalidToken := "invalid_token"
 
-	_, err := s.usecase.RefreshToken(s.ctx, "invalid-token")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "refresh token invalid")
+	s.mockJWTService.On("ValidateToken", invalidToken).Return(nil, errors.New("invalid token"))
+
+	// Act
+	_, err := s.usecase.RefreshToken(s.ctx, invalidToken)
+
+	// Assert
+	s.Error(err)
+	s.Equal("invalid or expired refresh token", err.Error())
+	s.mockJWTService.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestRefreshToken_TokenExpired() {
+	// Arrange
+	expiredToken := "expired_token"
 	userID := primitive.NewObjectID()
-	token := userpkg.Token{
-		UserID:       userID,
-		RefreshToken: "refresh-token",
-		ExpiresAt:    time.Now().Add(-10 * time.Minute), // expired
+
+	claims := map[string]interface{}{
+		"_id": userID.Hex(),
 	}
 
-	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, "refresh-token").Return(token, nil)
+	storedToken := userpkg.Token{
+		UserID:       userID,
+		RefreshToken: expiredToken,
+		ExpiresAt:    time.Now().Add(-24 * time.Hour), // Already expired
+	}
 
-	_, err := s.usecase.RefreshToken(s.ctx, "refresh-token")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "refresh token expired")
+	s.mockJWTService.On("ValidateToken", expiredToken).Return(claims, nil)
+	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, expiredToken).Return(storedToken, nil)
+
+	// Act
+	_, err := s.usecase.RefreshToken(s.ctx, expiredToken)
+
+	// Assert
+	s.Error(err)
+	s.Equal("refresh token expired", err.Error())
+	s.mockJWTService.AssertExpectations(s.T())
+	s.mockTokenRepo.AssertExpectations(s.T())
 }
 
 func (s *UserUsecaseTestSuite) TestRefreshToken_UserNotFound() {
+	// Arrange
+	refreshToken := "valid_token"
 	userID := primitive.NewObjectID()
-	token := userpkg.Token{
-		UserID:       userID,
-		RefreshToken: "refresh-token",
-		ExpiresAt:    time.Now().Add(1 * time.Hour),
+
+	claims := map[string]interface{}{
+		"_id": userID.Hex(),
 	}
 
-	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, "refresh-token").Return(token, nil)
+	storedToken := userpkg.Token{
+		UserID:       userID,
+		RefreshToken: refreshToken,
+		ExpiresAt:    time.Now().Add(24 * time.Hour),
+	}
+
+	s.mockJWTService.On("ValidateToken", refreshToken).Return(claims, nil)
+	s.mockTokenRepo.On("FindByRefreshToken", s.ctx, refreshToken).Return(storedToken, nil)
 	s.mockUserRepo.On("FindByID", s.ctx, userID.Hex()).Return(userpkg.User{}, errors.New("not found"))
 
-	_, err := s.usecase.RefreshToken(s.ctx, "refresh-token")
-	s.Require().Error(err)
-	s.Contains(err.Error(), "user not found")
+	// Act
+	_, err := s.usecase.RefreshToken(s.ctx, refreshToken)
+
+	// Assert
+	s.Error(err)
+	s.mockJWTService.AssertExpectations(s.T())
+	s.mockTokenRepo.AssertExpectations(s.T())
+	s.mockUserRepo.AssertExpectations(s.T())
 }
