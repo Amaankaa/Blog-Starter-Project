@@ -593,3 +593,36 @@ func (s *UserUsecaseTestSuite) TestRefreshToken_UserNotFound() {
 	s.mockTokenRepo.AssertExpectations(s.T())
 	s.mockUserRepo.AssertExpectations(s.T())
 }
+
+func (s *UserUsecaseTestSuite) TestLogout_Success() {
+	// Arrange
+	userID := primitive.NewObjectID().Hex()
+
+	s.mockTokenRepo.
+		On("DeleteTokensByUserID", mock.Anything, userID). // <-- Fix here
+		Return(nil)
+
+	// Act
+	err := s.usecase.Logout(s.ctx, userID)
+
+	// Assert
+	s.NoError(err)
+	s.mockTokenRepo.AssertCalled(s.T(), "DeleteTokensByUserID", mock.Anything, userID) // <-- Fix here
+}
+
+func (s *UserUsecaseTestSuite) TestLogout_FailureFromTokenRepo() {
+	// Arrange
+	userID := primitive.NewObjectID().Hex()
+	expectedErr := errors.New("failed to delete tokens")
+
+	s.mockTokenRepo.
+		On("DeleteTokensByUserID", mock.Anything, userID). // <-- Fix here
+		Return(expectedErr)
+
+	// Act
+	err := s.usecase.Logout(s.ctx, userID)
+
+	// Assert
+	s.EqualError(err, expectedErr.Error())
+	s.mockTokenRepo.AssertCalled(s.T(), "DeleteTokensByUserID", mock.Anything, userID) // <-- Fix here
+}

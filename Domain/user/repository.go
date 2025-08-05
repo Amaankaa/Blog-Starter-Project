@@ -17,6 +17,7 @@ type ITokenRepository interface {
 	StoreToken(ctx context.Context, token Token) error
 	FindByRefreshToken(ctx context.Context, refreshToken string) (Token, error)
 	DeleteByRefreshToken(ctx context.Context, refreshToken string) error
+	DeleteTokensByUserID(ctx context.Context, userID string) error
 }
 
 type IPasswordResetRepository interface {

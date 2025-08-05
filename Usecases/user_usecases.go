@@ -246,3 +246,7 @@ func (u *UserUsecase) ResetPassword(ctx context.Context, email, newPassword stri
 	}
 	return u.userRepo.UpdatePasswordByEmail(ctx, email, hashed)
 }
+
+func (u *UserUsecase) Logout(ctx context.Context, userID string) error {
+	return u.tokenRepo.DeleteTokensByUserID(ctx, userID)
+}
