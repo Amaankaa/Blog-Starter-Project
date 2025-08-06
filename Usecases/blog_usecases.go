@@ -87,7 +87,7 @@ func (bu *BlogUsecase) GetAllBlogs(ctx context.Context, pagination blogpkg.Pagin
 	return result, nil
 }
 
-// UpdateBlog 
+// UpdateBlog updates an existing blog
 func (bu *BlogUsecase) UpdateBlog(ctx context.Context, id string, blog *blogpkg.Blog) (*blogpkg.Blog, error) {
 	if id == "" {
 		return nil, errors.New("blog ID is required")
@@ -140,6 +140,7 @@ func (bu *BlogUsecase) UpdateBlog(ctx context.Context, id string, blog *blogpkg.
 	return updatedBlog, nil
 }
 
+// DeleteBlog deletes a blog by its ID
 func (bu *BlogUsecase) DeleteBlog(ctx context.Context, id string) error {
 	userID := ctx.Value("user_id")
 	if userID == nil {
