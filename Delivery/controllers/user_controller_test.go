@@ -34,6 +34,8 @@ func (s *ControllerTestSuite) SetupTest() {
 	s.router.POST("/refresh", ctrl.RefreshToken)
 	s.router.POST("/verify-otp", ctrl.VerifyOTP)
 	s.router.POST("/reset-password", ctrl.ResetPassword)
+	s.router.PUT("/user/:id/promote", ctrl.PromoteUser)
+	s.router.PUT("/user/:id/demote", ctrl.DemoteUser)
 }
 
 func (s *ControllerTestSuite) performRequest(method, path string, body interface{}) *httptest.ResponseRecorder {
@@ -46,7 +48,7 @@ func (s *ControllerTestSuite) performRequest(method, path string, body interface
 	if err != nil {
 		s.FailNow("Failed to marshal body", err)
 	}
-	
+
 	req := httptest.NewRequest(method, path, bytes.NewBuffer(b))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -150,6 +152,50 @@ func (s *ControllerTestSuite) TestLogin_InvalidCredentials() {
 
 	w := s.performRequest("POST", "/login", map[string]string{"login": "user1", "password": "wrongpass"})
 	s.Equal(http.StatusUnauthorized, w.Code)
+}
+
+func (s *ControllerTestSuite) TestPromoteUser_Success() {
+	id := "user123"
+	s.mockUC.On("PromoteUser", mock.Anything, id).Return(nil)
+	req := httptest.NewRequest(http.MethodPut, "/user/"+id+"/promote", nil)
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusOK, w.Code)
+	s.Contains(w.Body.String(), "user promoted")
+	s.mockUC.AssertCalled(s.T(), "PromoteUser", mock.Anything, id)
+}
+
+func (s *ControllerTestSuite) TestPromoteUser_Error() {
+	id := "user123"
+	errMock := errors.New("fail to promote")
+	s.mockUC.On("PromoteUser", mock.Anything, id).Return(errMock)
+	req := httptest.NewRequest(http.MethodPut, "/user/"+id+"/promote", nil)
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusBadRequest, w.Code)
+	s.Contains(w.Body.String(), "fail to promote")
+}
+
+func (s *ControllerTestSuite) TestDemoteUser_Success() {
+	id := "user456"
+	s.mockUC.On("DemoteUser", mock.Anything, id).Return(nil)
+	req := httptest.NewRequest(http.MethodPut, "/user/"+id+"/demote", nil)
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusOK, w.Code)
+	s.Contains(w.Body.String(), "user demoted")
+	s.mockUC.AssertCalled(s.T(), "DemoteUser", mock.Anything, id)
+}
+
+func (s *ControllerTestSuite) TestDemoteUser_Error() {
+	id := "user456"
+	errMock := errors.New("fail to demote")
+	s.mockUC.On("DemoteUser", mock.Anything, id).Return(errMock)
+	req := httptest.NewRequest(http.MethodPut, "/user/"+id+"/demote", nil)
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusBadRequest, w.Code)
+	s.Contains(w.Body.String(), "fail to demote")
 }
 
 func TestControllerTestSuite(t *testing.T) {
