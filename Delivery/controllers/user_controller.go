@@ -1,9 +1,9 @@
 package controllers
 
 import (
-	"os"
 	"context"
 	"net/http"
+	"os"
 	"time"
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
@@ -96,65 +96,65 @@ func (ctrl *Controller) RefreshToken(c *gin.Context) {
 }
 
 func (ctrl *Controller) ForgotPassword(c *gin.Context) {
-    var req struct{ Email string }
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-        return
-    }
+	var req struct{ Email string }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
 
-    ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
 
-    if err := ctrl.userUsecase.SendResetOTP(ctx, req.Email); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	if err := ctrl.userUsecase.SendResetOTP(ctx, req.Email); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{"message": "OTP sent"})
+	c.JSON(http.StatusOK, gin.H{"message": "OTP sent"})
 }
 
 func (ctrl *Controller) VerifyOTP(c *gin.Context) {
-    var req struct {
-        Email string `json:"email"`
-        OTP   string `json:"otp"`
-    }
+	var req struct {
+		Email string `json:"email"`
+		OTP   string `json:"otp"`
+	}
 
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-        return
-    }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
 
-    ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
 
-    if err := ctrl.userUsecase.VerifyOTP(ctx, req.Email, req.OTP); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	if err := ctrl.userUsecase.VerifyOTP(ctx, req.Email, req.OTP); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{"message": "OTP verified, you can reset your password."})
+	c.JSON(http.StatusOK, gin.H{"message": "OTP verified, you can reset your password."})
 }
 
 func (ctrl *Controller) ResetPassword(c *gin.Context) {
-    var req struct {
-        Email       string `json:"email"`
-        NewPassword string `json:"new_password"`
-    }
+	var req struct {
+		Email       string `json:"email"`
+		NewPassword string `json:"new_password"`
+	}
 
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-        return
-    }
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
 
-    ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-    defer cancel()
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
 
-    if err := ctrl.userUsecase.ResetPassword(ctx, req.Email, req.NewPassword); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
-    }
+	if err := ctrl.userUsecase.ResetPassword(ctx, req.Email, req.NewPassword); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
+	c.JSON(http.StatusOK, gin.H{"message": "Password reset successful"})
 }
 
 func (ctrl *Controller) Logout(c *gin.Context) {
@@ -179,4 +179,26 @@ func (ctrl *Controller) Logout(c *gin.Context) {
 	c.SetCookie("refresh_token", "", -1, "/", cookieDomain, false, true)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+}
+
+func (ctrl *Controller) PromoteUser(c *gin.Context) {
+	userID := c.Param("id")
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	if err := ctrl.userUsecase.PromoteUser(ctx, userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "user promoted"})
+}
+
+func (ctrl *Controller) DemoteUser(c *gin.Context) {
+	userID := c.Param("id")
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+	if err := ctrl.userUsecase.DemoteUser(ctx, userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "user demoted"})
 }

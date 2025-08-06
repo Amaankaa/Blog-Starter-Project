@@ -2,6 +2,7 @@ package repositories_test
 
 import (
 	"context"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"os"
 	"testing"
@@ -132,4 +133,35 @@ func (s *userRepositoryTestSuite) TestCountUsers() {
 	count, err := s.repo.CountUsers(s.ctx)
 	s.Require().NoError(err)
 	s.Equal(int64(1), count)
+}
+
+// TestUpdateUserRoleByID_Success updates the role to admin
+func (s *userRepositoryTestSuite) TestUpdateUserRoleByID_Success() {
+	// Arrange: create user with initial role
+	user := userpkg.User{
+		Username: "roleuser",
+		Password: "pass",
+		Email:    "role@example.com",
+		Fullname: "Role User",
+		Role:     "user",
+	}
+	created, err := s.repo.CreateUser(s.ctx, user)
+	s.Require().NoError(err)
+	id := created.ID.Hex()
+
+	// Act: promote to admin
+	err = s.repo.UpdateUserRoleByID(s.ctx, id, "admin")
+	// Assert
+	s.NoError(err)
+	updated, err := s.repo.FindByID(s.ctx, id)
+	s.Require().NoError(err)
+	s.Equal("admin", updated.Role)
+}
+
+// TestUpdateUserRoleByID_NotFound returns error when user does not exist
+func (s *userRepositoryTestSuite) TestUpdateUserRoleByID_NotFound() {
+	fakeID := primitive.NewObjectID().Hex()
+	err := s.repo.UpdateUserRoleByID(s.ctx, fakeID, "admin")
+	s.Error(err)
+	s.Contains(err.Error(), "user not found")
 }

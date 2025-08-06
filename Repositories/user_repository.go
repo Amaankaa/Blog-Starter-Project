@@ -1,8 +1,8 @@
 package repositories
 
 import (
-	"errors"
 	"context"
+	"errors"
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
 
@@ -96,4 +96,21 @@ func (ur *UserRepository) FindByID(ctx context.Context, userID string) (userpkg.
 	}
 
 	return user, nil
+}
+
+func (ur *UserRepository) UpdateUserRoleByID(ctx context.Context, userID, role string) error {
+	oid, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+	filter := bson.M{"_id": oid}
+	update := bson.M{"$set": bson.M{"role": role}}
+	res, err := ur.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return errors.New("user not found")
+	}
+	return nil
 }
