@@ -14,6 +14,24 @@ type IUserUsecase struct {
 	mock.Mock
 }
 
+// DemoteUser provides a mock function with given fields: ctx, userID
+func (_m *IUserUsecase) DemoteUser(ctx context.Context, userID string) error {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DemoteUser")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // LoginUser provides a mock function with given fields: ctx, login, password
 func (_m *IUserUsecase) LoginUser(ctx context.Context, login string, password string) (userpkg.User, string, string, error) {
 	ret := _m.Called(ctx, login, password)
@@ -62,6 +80,24 @@ func (_m *IUserUsecase) Logout(ctx context.Context, userID string) error {
 
 	if len(ret) == 0 {
 		panic("no return value specified for Logout")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// PromoteUser provides a mock function with given fields: ctx, userID
+func (_m *IUserUsecase) PromoteUser(ctx context.Context, userID string) error {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PromoteUser")
 	}
 
 	var r0 error
