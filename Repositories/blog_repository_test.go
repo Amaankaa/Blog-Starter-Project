@@ -289,3 +289,108 @@ func (s *blogRepositoryTestSuite) TestDeleteBlog_NotFound() {
 	err := s.blogRepo.DeleteBlog("not-exist")
 	assert.NoError(err) // Mongo DeleteOne returns no error if nothing deleted
 }
+
+func (s *blogRepositoryTestSuite) TestSearchBlogs() {
+	assert := assert.New(s.T())
+
+	// Insert blogs
+	now := time.Now()
+	blogs := []blogpkg.Blog{
+		{ID: "id-1", Title: "Go Mongo", Content: "Learning Go with MongoDB", AuthorID: "author-1", Tags: []string{"go", "mongo"}, CreatedAt: now.Add(-3 * time.Hour), UpdatedAt: now.Add(-3 * time.Hour)},
+		{ID: "id-2", Title: "Python Tips", Content: "Python and data science", AuthorID: "author-2", Tags: []string{"python"}, CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-2 * time.Hour)},
+		{ID: "id-3", Title: "Go Testing", Content: "Testing in Go is fun", AuthorID: "author-3", Tags: []string{"go", "test"}, CreatedAt: now.Add(-1 * time.Hour), UpdatedAt: now.Add(-1 * time.Hour)},
+	}
+	for _, blog := range blogs {
+		_, err := s.blogRepo.CreateBlog(&blog)
+		assert.NoError(err)
+	}
+
+	// Search for 'Go' (should match title/content, case-insensitive)
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	resp, err := s.blogRepo.SearchBlogs(s.ctx, "go", pagination)
+	assert.NoError(err)
+	assert.Equal(int64(2), resp.Total)
+	assert.Equal(2, len(resp.Data))
+	// Should be sorted by created_at descending
+	assert.Equal("Go Testing", resp.Data[0].Title)
+	assert.Equal("Go Mongo", resp.Data[1].Title)
+
+	// Search for 'python' (should match one)
+	resp2, err := s.blogRepo.SearchBlogs(s.ctx, "python", pagination)
+	assert.NoError(err)
+	assert.Equal(int64(1), resp2.Total)
+	assert.Equal("Python Tips", resp2.Data[0].Title)
+
+	// Search for 'data' (should match content)
+	resp3, err := s.blogRepo.SearchBlogs(s.ctx, "data", pagination)
+	assert.NoError(err)
+	assert.Equal(int64(1), resp3.Total)
+	assert.Equal("Python Tips", resp3.Data[0].Title)
+
+	// Search for non-existent term
+	resp4, err := s.blogRepo.SearchBlogs(s.ctx, "nonexistent", pagination)
+	assert.NoError(err)
+	assert.Equal(int64(0), resp4.Total)
+	assert.Equal(0, len(resp4.Data))
+
+	// Pagination: limit 1, page 2 (should get second result)
+	pagination = blogpkg.PaginationRequest{Page: 2, Limit: 1}
+	resp5, err := s.blogRepo.SearchBlogs(s.ctx, "go", pagination)
+	assert.NoError(err)
+	assert.Equal(1, len(resp5.Data))
+	assert.Equal("Go Mongo", resp5.Data[0].Title)
+}
+
+func (s *blogRepositoryTestSuite) TestFilterByTags() {
+	assert := assert.New(s.T())
+
+	now := time.Now()
+	blogs := []blogpkg.Blog{
+		{ID: "id-1", Title: "Go Mongo", Content: "Learning Go with MongoDB", AuthorID: "author-1", Tags: []string{"go", "mongo"}, CreatedAt: now.Add(-3 * time.Hour), UpdatedAt: now.Add(-3 * time.Hour)},
+		{ID: "id-2", Title: "Python Tips", Content: "Python and data science", AuthorID: "author-2", Tags: []string{"python", "data"}, CreatedAt: now.Add(-2 * time.Hour), UpdatedAt: now.Add(-2 * time.Hour)},
+		{ID: "id-3", Title: "Go Testing", Content: "Testing in Go is fun", AuthorID: "author-3", Tags: []string{"go", "test"}, CreatedAt: now.Add(-1 * time.Hour), UpdatedAt: now.Add(-1 * time.Hour)},
+	}
+	for _, blog := range blogs {
+		_, err := s.blogRepo.CreateBlog(&blog)
+		assert.NoError(err)
+	}
+
+	// Filter by tag 'go' (should match 2)
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	resp, err := s.blogRepo.FilterByTags(s.ctx, []string{"go"}, pagination)
+	assert.NoError(err)
+	assert.Equal(int64(2), resp.Total)
+	assert.Equal(2, len(resp.Data))
+	assert.ElementsMatch([]string{"Go Mongo", "Go Testing"}, []string{resp.Data[0].Title, resp.Data[1].Title})
+
+	// Filter by tag 'python' (should match 1)
+	resp2, err := s.blogRepo.FilterByTags(s.ctx, []string{"python"}, pagination)
+	assert.NoError(err)
+	assert.Equal(int64(1), resp2.Total)
+	assert.Equal("Python Tips", resp2.Data[0].Title)
+
+	// Filter by tag 'test' (should match 1)
+	resp3, err := s.blogRepo.FilterByTags(s.ctx, []string{"test"}, pagination)
+	assert.NoError(err)
+	assert.Equal(int64(1), resp3.Total)
+	assert.Equal("Go Testing", resp3.Data[0].Title)
+
+	// Filter by multiple tags (should match all)
+	resp4, err := s.blogRepo.FilterByTags(s.ctx, []string{"go", "python", "test"}, pagination)
+	assert.NoError(err)
+	assert.Equal(int64(3), resp4.Total)
+	assert.Equal(3, len(resp4.Data))
+
+	// Filter by non-existent tag
+	resp5, err := s.blogRepo.FilterByTags(s.ctx, []string{"nonexistent"}, pagination)
+	assert.NoError(err)
+	assert.Equal(int64(0), resp5.Total)
+	assert.Equal(0, len(resp5.Data))
+
+	// Pagination: limit 1, page 2 (should get second result for 'go')
+	pagination = blogpkg.PaginationRequest{Page: 2, Limit: 1}
+	resp6, err := s.blogRepo.FilterByTags(s.ctx, []string{"go"}, pagination)
+	assert.NoError(err)
+	assert.Equal(1, len(resp6.Data))
+	assert.True(resp6.Data[0].Title == "Go Mongo" || resp6.Data[0].Title == "Go Testing")
+}

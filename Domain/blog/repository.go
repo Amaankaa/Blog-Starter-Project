@@ -9,4 +9,6 @@ type IBlogRepository interface {
 	GetAllBlogs(ctx context.Context, pagination PaginationRequest) (PaginationResponse, error)
 	UpdateBlog(id string, blog *Blog) (*Blog, error)
 	DeleteBlog(id string) error
+	SearchBlogs(ctx context.Context, query string, pagination PaginationRequest) (PaginationResponse, error)
+	FilterByTags(ctx context.Context, tags []string, pagination PaginationRequest) (PaginationResponse, error)
 }

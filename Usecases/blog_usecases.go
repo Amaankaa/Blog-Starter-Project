@@ -70,15 +70,7 @@ func (bu *BlogUsecase) GetBlogByID(ctx context.Context, id string) (*blogpkg.Blo
 // GetAllBlogs returns paginated blogs
 func (bu *BlogUsecase) GetAllBlogs(ctx context.Context, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
    // Set default values if not provided
-   if pagination.Page <= 0 {
-       pagination.Page = 1
-   }
-   if pagination.Limit <= 0 {
-       pagination.Limit = 10
-   }
-   if pagination.Limit > 100 {
-       pagination.Limit = 100 // Limit max page size
-   }
+	pagination = normalizePagination(pagination)
 
 	result, err := bu.blogRepo.GetAllBlogs(ctx, pagination)
 	if err != nil {
@@ -167,4 +159,57 @@ func (bu *BlogUsecase) DeleteBlog(ctx context.Context, id string) error {
 		return err
 	}
 	return nil
+}
+
+func (bu *BlogUsecase) SearchBlogs(ctx context.Context, query string, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
+	if query == "" {
+		return blogpkg.PaginationResponse{}, errors.New("search query cannot be empty")
+	}
+
+	pagination = normalizePagination(pagination)
+
+	result, err := bu.blogRepo.SearchBlogs(ctx, query, pagination)
+	if err != nil {
+		return blogpkg.PaginationResponse{}, err
+	}
+	return result, nil
+}
+
+func (bu *BlogUsecase) FilterByTags(ctx context.Context, tags []string, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
+	if len(tags) == 0 {
+		return blogpkg.PaginationResponse{}, errors.New("tags cannot be empty")
+	}
+
+	pagination = normalizePagination(pagination)
+
+	// Call the repository to filter blogs by tags
+	if len(tags) > 5 {
+		return blogpkg.PaginationResponse{}, errors.New("too many tags, maximum is 5")
+	}
+
+	for _, tag := range tags {
+		if tag == "" {
+			return blogpkg.PaginationResponse{}, errors.New("tag cannot be empty")
+		}
+	}
+
+	result, err := bu.blogRepo.FilterByTags(ctx, tags, pagination)
+	if err != nil {
+		return blogpkg.PaginationResponse{}, err
+	}
+	return result, nil
+}
+
+// helper function
+func normalizePagination(p blogpkg.PaginationRequest) blogpkg.PaginationRequest {
+	if p.Page <= 0 {
+		p.Page = 1
+	}
+	if p.Limit <= 0 {
+		p.Limit = 10
+	}
+	if p.Limit > 100 {
+		p.Limit = 100
+	}
+	return p
 }

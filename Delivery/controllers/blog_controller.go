@@ -89,13 +89,6 @@ func (bc *BlogController) GetAllBlogs(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// ParseInt64 safely parses a string to int64
-func ParseInt64(s string) (int64, error) {
-	var v int64
-	_, err := fmt.Sscan(s, &v)
-	return v, err
-}
-
 // UpdateBlog handles updating an existing blog post
 func (bc *BlogController) UpdateBlog(c *gin.Context) {
 	id := c.Param("id")
@@ -140,3 +133,79 @@ func (bc *BlogController) DeleteBlog(c *gin.Context) {
 	c.JSON(http.StatusNoContent, nil)
 }
 
+func (bc *BlogController) SearchBlogs(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Search query is required"})
+		return
+	}
+
+	// Parse pagination parameters
+	page, limit := parsePaginationParams(c, 1, 10)
+	pagination := blogpkg.PaginationRequest{
+		Page:  page,
+		Limit: limit,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result, err := bc.blogUsecase.SearchBlogs(ctx, query, pagination)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+// Helper function
+func parsePaginationParams(c *gin.Context, defaultPage, defaultLimit int) (int, int) {
+	page := defaultPage
+	limit := defaultLimit
+
+	if p := c.Query("page"); p != "" {
+		if v, err := ParseInt64(p); err == nil && v > 0 {
+			page = int(v)
+		}
+	}
+
+	if ps := c.Query("limit"); ps != "" {
+		if v, err := ParseInt64(ps); err == nil && v > 0 {
+			limit = int(v)
+		}
+	}
+
+	return page, limit
+}
+
+// FilterByTags handles filtering blogs by tags
+func (bc *BlogController) FilterByTags(c *gin.Context) {
+	tags := c.QueryArray("tags")
+	if len(tags) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "At least one tag is required"})
+		return
+	}
+
+	page, limit := parsePaginationParams(c, 1, 10)
+
+	pagination := blogpkg.PaginationRequest{
+		Page:  page,
+		Limit: limit,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result, err := bc.blogUsecase.FilterByTags(ctx, tags, pagination)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}
+
+func ParseInt64(s string) (int64, error) {
+	var v int64
+	_, err := fmt.Sscan(s, &v)
+	return v, err
+}
