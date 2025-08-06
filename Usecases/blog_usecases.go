@@ -143,7 +143,7 @@ func (bu *BlogUsecase) UpdateBlog(ctx context.Context, id string, blog *blogpkg.
 func (bu *BlogUsecase) DeleteBlog(ctx context.Context, id string) error {
 	userID := ctx.Value("user_id")
 	if userID == nil {
-		return errors.New("user ID not fould in context")
+		return errors.New("user ID not found in context")
 	}
 	authorID, ok := userID.(string)
 	if !ok || authorID == "" {
