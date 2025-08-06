@@ -23,11 +23,14 @@ func NewBlogRepository(collection *mongo.Collection) *BlogRepository {
 }
 
 func (br *BlogRepository) CreateBlog(blog *blogpkg.Blog) (*blogpkg.Blog, error) {
+	// Ensure Likes is always an array (not nil) for MongoDB $addToSet
+	if blog.Likes == nil {
+		blog.Likes = []string{}
+	}
 	_, err := br.collection.InsertOne(br.ctx, blog)
 	if err != nil {
 		return nil, err
 	}
-
 	return blog, nil
 }
 
@@ -152,7 +155,7 @@ func (br *BlogRepository) FilterByTags(ctx context.Context, tags []string, pagin
 	total, err := br.collection.CountDocuments(ctx, filter)
 	if err != nil {
 		return blogpkg.PaginationResponse{}, err
-	}	
+	}
 	// Apply pagination with skip and limit
 	offset := int64((pagination.Page - 1) * pagination.Limit)
 	findOptions := options.Find().
@@ -180,4 +183,24 @@ func (br *BlogRepository) FilterByTags(ctx context.Context, tags []string, pagin
 		Limit:      pagination.Limit,
 		TotalPages: totalPages,
 	}, nil
+}
+
+func (br *BlogRepository) AddLike(ctx context.Context, blogID string, userID string) error {
+	filter := bson.M{"id": blogID}
+	update := bson.M{"$addToSet": bson.M{"likes": userID}}
+	_, err := br.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (br *BlogRepository) RemoveLike(ctx context.Context, blogID string, userID string) error {
+	filter := bson.M{"id": blogID}
+	update := bson.M{"$pull": bson.M{"likes": userID}}
+	_, err := br.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -15,6 +15,24 @@ type IBlogRepository struct {
 	mock.Mock
 }
 
+// AddLike provides a mock function with given fields: ctx, blogID, userID
+func (_m *IBlogRepository) AddLike(ctx context.Context, blogID string, userID string) error {
+	ret := _m.Called(ctx, blogID, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddLike")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, blogID, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CreateBlog provides a mock function with given fields: blog
 func (_m *IBlogRepository) CreateBlog(blog *blogpkg.Blog) (*blogpkg.Blog, error) {
 	ret := _m.Called(blog)
@@ -147,6 +165,24 @@ func (_m *IBlogRepository) GetBlogByID(id string) (*blogpkg.Blog, error) {
 	}
 
 	return r0, r1
+}
+
+// RemoveLike provides a mock function with given fields: ctx, blogID, userID
+func (_m *IBlogRepository) RemoveLike(ctx context.Context, blogID string, userID string) error {
+	ret := _m.Called(ctx, blogID, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for RemoveLike")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, blogID, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // SearchBlogs provides a mock function with given fields: ctx, query, pagination

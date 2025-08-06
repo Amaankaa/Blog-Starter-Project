@@ -373,3 +373,53 @@ func (s *BlogUsecaseSuite) TestFilterByTags_ErrorFromRepo() {
 	assert.Equal(int64(0), resp.Total)
 	s.blogRepo.AssertExpectations(s.T())
 }
+
+func (s *BlogUsecaseSuite) TestToggleLike_AddLike() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	blogID := "blog-1"
+	userID := "user-1"
+	blog := &blogpkg.Blog{ID: blogID, Likes: []string{"user-2"}}
+	s.blogRepo.On("GetBlogByID", blogID).Return(blog, nil).Once()
+	s.blogRepo.On("AddLike", ctx, blogID, userID).Return(nil).Once()
+	err := s.blogUC.ToggleLike(ctx, blogID, userID)
+	assert.NoError(err)
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestToggleLike_RemoveLike() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	blogID := "blog-1"
+	userID := "user-1"
+	blog := &blogpkg.Blog{ID: blogID, Likes: []string{"user-1", "user-2"}}
+	s.blogRepo.On("GetBlogByID", blogID).Return(blog, nil).Once()
+	s.blogRepo.On("RemoveLike", ctx, blogID, userID).Return(nil).Once()
+	err := s.blogUC.ToggleLike(ctx, blogID, userID)
+	assert.NoError(err)
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestToggleLike_BlogNotFound() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	blogID := "not-exist"
+	userID := "user-1"
+	s.blogRepo.On("GetBlogByID", blogID).Return(nil, nil).Once()
+	err := s.blogUC.ToggleLike(ctx, blogID, userID)
+	assert.Error(err)
+	assert.Contains(err.Error(), "blog not found")
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestToggleLike_RepoError() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	blogID := "blog-1"
+	userID := "user-1"
+	s.blogRepo.On("GetBlogByID", blogID).Return(nil, errors.New("repo error")).Once()
+	err := s.blogUC.ToggleLike(ctx, blogID, userID)
+	assert.Error(err)
+	assert.Contains(err.Error(), "repo error")
+	s.blogRepo.AssertExpectations(s.T())
+}

@@ -394,3 +394,67 @@ func (s *blogRepositoryTestSuite) TestFilterByTags() {
 	assert.Equal(1, len(resp6.Data))
 	assert.True(resp6.Data[0].Title == "Go Mongo" || resp6.Data[0].Title == "Go Testing")
 }
+
+func (s *blogRepositoryTestSuite) TestAddLike_Success() {
+	assert := assert.New(s.T())
+	// Insert a blog
+	blog := &blogpkg.Blog{
+		ID:        "id-1",
+		Title:     "Like Me",
+		Content:   "Content",
+		AuthorID:  "author-1",
+		Tags:      []string{"go"},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.CreateBlog(blog)
+	assert.NoError(err)
+
+	err = s.blogRepo.AddLike(s.ctx, blog.ID, "user-1")
+	assert.NoError(err)
+
+	// Check in DB
+	var found blogpkg.Blog
+	err = s.collection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	assert.NoError(err)
+	assert.Contains(found.Likes, "user-1")
+}
+
+func (s *blogRepositoryTestSuite) TestAddLike_BlogNotFound() {
+	assert := assert.New(s.T())
+	err := s.blogRepo.AddLike(s.ctx, "not-exist", "user-1")
+	assert.NoError(err) // MongoDB does not error if no doc found
+}
+
+func (s *blogRepositoryTestSuite) TestRemoveLike_Success() {
+	assert := assert.New(s.T())
+	// Insert a blog with a like
+	blog := &blogpkg.Blog{
+		ID:        "id-1",
+		Title:     "Like Me",
+		Content:   "Content",
+		AuthorID:  "author-1",
+		Tags:      []string{"go"},
+		Likes:     []string{"user-1", "user-2"},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.CreateBlog(blog)
+	assert.NoError(err)
+
+	err = s.blogRepo.RemoveLike(s.ctx, blog.ID, "user-1")
+	assert.NoError(err)
+
+	// Check in DB
+	var found blogpkg.Blog
+	err = s.collection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	assert.NoError(err)
+	assert.NotContains(found.Likes, "user-1")
+	assert.Contains(found.Likes, "user-2")
+}
+
+func (s *blogRepositoryTestSuite) TestRemoveLike_BlogNotFound() {
+	assert := assert.New(s.T())
+	err := s.blogRepo.RemoveLike(s.ctx, "not-exist", "user-1")
+	assert.NoError(err) // MongoDB does not error if no doc found
+}

@@ -38,6 +38,11 @@ func (s *BlogControllerSuite) SetupTest() {
 	s.router.DELETE("/blogs/:id", s.controller.DeleteBlog)
 	s.router.GET("/blogs/search", s.controller.SearchBlogs)
 	s.router.GET("/blogs/filter", s.controller.FilterByTags)
+	s.router.POST("/blogs/:id/like", func(c *gin.Context) {
+		// Simulate user_id in context
+		c.Set("user_id", "user-1")
+		s.controller.LikeBlog(c)
+	})
 }
 
 func (s *BlogControllerSuite) TestCreateBlog_Success() {
@@ -348,6 +353,52 @@ func (s *BlogControllerSuite) TestFilterByTags_ErrorFromUsecase() {
 
 	assert.Equal(http.StatusInternalServerError, res.Code)
 	assert.Contains(res.Body.String(), "repo error")
+}
+
+func (s *BlogControllerSuite) TestLikeBlog_Success() {
+	assert := assert.New(s.T())
+	blogID := "blog-1"
+	s.blogUsecase.On("ToggleLike", mock.Anything, blogID, "user-1").Return(nil)
+
+	req, _ := http.NewRequest("POST", "/blogs/"+blogID+"/like", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusOK, res.Code)
+	assert.Contains(res.Body.String(), "Toggled like successfully")
+}
+
+func (s *BlogControllerSuite) TestLikeBlog_MissingBlogID() {
+	assert := assert.New(s.T())
+	req, _ := http.NewRequest("POST", "/blogs//like", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+	assert.Equal(http.StatusBadRequest, res.Code)
+	assert.Contains(res.Body.String(), "Blog ID is required")
+}
+
+func (s *BlogControllerSuite) TestLikeBlog_Unauthenticated() {
+	assert := assert.New(s.T())
+	// Register route without setting user_id
+	s.router.POST("/blogs/:id/like-noauth", s.controller.LikeBlog)
+	req, _ := http.NewRequest("POST", "/blogs/blog-1/like-noauth", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+	assert.Equal(http.StatusUnauthorized, res.Code)
+	assert.Contains(res.Body.String(), "User not authenticated")
+}
+
+func (s *BlogControllerSuite) TestLikeBlog_ErrorFromUsecase() {
+	assert := assert.New(s.T())
+	blogID := "blog-1"
+	s.blogUsecase.On("ToggleLike", mock.Anything, blogID, "user-1").Return(errors.New("toggle error"))
+
+	req, _ := http.NewRequest("POST", "/blogs/"+blogID+"/like", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusInternalServerError, res.Code)
+	assert.Contains(res.Body.String(), "toggle error")
 }
 
 func TestBlogControllerSuite(t *testing.T) {

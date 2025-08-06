@@ -209,3 +209,26 @@ func ParseInt64(s string) (int64, error) {
 	_, err := fmt.Sscan(s, &v)
 	return v, err
 }
+
+func (bc *BlogController) LikeBlog(c *gin.Context) {
+	blogID := c.Param("id")
+	if blogID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Blog ID is required"})
+		return
+	}
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := bc.blogUsecase.ToggleLike(ctx, blogID, userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Toggled like successfully"})
+}

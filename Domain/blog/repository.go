@@ -11,4 +11,6 @@ type IBlogRepository interface {
 	DeleteBlog(id string) error
 	SearchBlogs(ctx context.Context, query string, pagination PaginationRequest) (PaginationResponse, error)
 	FilterByTags(ctx context.Context, tags []string, pagination PaginationRequest) (PaginationResponse, error)
+	AddLike(ctx context.Context, blogID string, userID string) error
+	RemoveLike(ctx context.Context, blogID string, userID string) error
 }
