@@ -1,0 +1,157 @@
+package controllers_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/Amaankaa/Blog-Starter-Project/Delivery/controllers"
+	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
+	mock_user "github.com/Amaankaa/Blog-Starter-Project/mocks"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/suite"
+)
+
+type ControllerTestSuite struct {
+	suite.Suite
+	router *gin.Engine
+	mockUC *mock_user.IUserUsecase
+}
+
+func (s *ControllerTestSuite) SetupTest() {
+	gin.SetMode(gin.TestMode)
+	s.mockUC = new(mock_user.IUserUsecase)
+	ctrl := controllers.NewController(s.mockUC)
+	s.router = gin.Default()
+	s.router.POST("/register", ctrl.Register)
+	s.router.POST("/login", ctrl.Login)
+	s.router.POST("/forgot-password", ctrl.ForgotPassword)
+	s.router.POST("/refresh", ctrl.RefreshToken)
+	s.router.POST("/verify-otp", ctrl.VerifyOTP)
+	s.router.POST("/reset-password", ctrl.ResetPassword)
+}
+
+func (s *ControllerTestSuite) performRequest(method, path string, body interface{}) *httptest.ResponseRecorder {
+	var b []byte
+	var err error
+	if body != nil {
+		b, err = json.Marshal(body)
+	}
+
+	if err != nil {
+		s.FailNow("Failed to marshal body", err)
+	}
+	
+	req := httptest.NewRequest(method, path, bytes.NewBuffer(b))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, req)
+	return w
+}
+
+// === TESTS ===
+
+func (s *ControllerTestSuite) TestRefreshToken_Success() {
+	expected := userpkg.TokenResult{
+		AccessToken:      "new-access",
+		RefreshToken:     "new-refresh",
+		AccessExpiresAt:  time.Now().Add(1 * time.Hour),
+		RefreshExpiresAt: time.Now().Add(24 * time.Hour),
+	}
+	s.mockUC.On("RefreshToken", mock.Anything, "valid-refresh-token").
+		Return(expected, nil)
+
+	w := s.performRequest("POST", "/refresh", map[string]string{"refresh_token": "valid-refresh-token"})
+
+	s.Equal(http.StatusOK, w.Code)
+	var res userpkg.TokenResult
+	s.NoError(json.Unmarshal(w.Body.Bytes(), &res))
+	s.Equal(expected.AccessToken, res.AccessToken)
+	s.Equal(expected.RefreshToken, res.RefreshToken)
+	s.False(res.AccessExpiresAt.IsZero())
+	s.False(res.RefreshExpiresAt.IsZero())
+}
+
+func (s *ControllerTestSuite) TestRefreshToken_MissingToken() {
+	w := s.performRequest("POST", "/refresh", map[string]string{})
+	s.Equal(http.StatusBadRequest, w.Code)
+}
+
+func (s *ControllerTestSuite) TestRefreshToken_InvalidToken() {
+	s.mockUC.On("RefreshToken", mock.Anything, "bad-token").
+		Return(userpkg.TokenResult{}, errors.New("unauthorized"))
+
+	w := s.performRequest("POST", "/refresh", map[string]string{"refresh_token": "bad-token"})
+	s.Equal(http.StatusUnauthorized, w.Code)
+}
+
+func (s *ControllerTestSuite) TestVerifyOTP_Success() {
+	s.mockUC.On("VerifyOTP", mock.Anything, "test@example.com", "123456").Return(nil)
+	w := s.performRequest("POST", "/verify-otp", map[string]string{"email": "test@example.com", "otp": "123456"})
+	s.Equal(http.StatusOK, w.Code)
+}
+
+func (s *ControllerTestSuite) TestVerifyOTP_InvalidJSON() {
+	req := httptest.NewRequest("POST", "/verify-otp", bytes.NewBuffer([]byte(`{"email":`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusBadRequest, w.Code)
+}
+
+func (s *ControllerTestSuite) TestVerifyOTP_WrongOTP() {
+	s.mockUC.On("VerifyOTP", mock.Anything, "test@example.com", "wrong").Return(errors.New("invalid otp"))
+	w := s.performRequest("POST", "/verify-otp", map[string]string{"email": "test@example.com", "otp": "wrong"})
+	s.Equal(http.StatusBadRequest, w.Code)
+}
+
+func (s *ControllerTestSuite) TestResetPassword_Success() {
+	s.mockUC.On("ResetPassword", mock.Anything, "test@example.com", "NewPass@123").Return(nil)
+	w := s.performRequest("POST", "/reset-password", map[string]string{"email": "test@example.com", "new_password": "NewPass@123"})
+	s.Equal(http.StatusOK, w.Code)
+}
+
+func (s *ControllerTestSuite) TestResetPassword_InvalidJSON() {
+	req := httptest.NewRequest("POST", "/reset-password", bytes.NewBuffer([]byte(`{"email":`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	s.router.ServeHTTP(w, req)
+	s.Equal(http.StatusBadRequest, w.Code)
+}
+
+func (s *ControllerTestSuite) TestResetPassword_WeakPassword() {
+	s.mockUC.On("ResetPassword", mock.Anything, "test@example.com", "123").Return(errors.New("weak password"))
+	w := s.performRequest("POST", "/reset-password", map[string]string{"email": "test@example.com", "new_password": "123"})
+	s.Equal(http.StatusBadRequest, w.Code)
+}
+
+func (s *ControllerTestSuite) TestRegister_WeakPassword() {
+	input := userpkg.User{Username: "user1", Email: "test@example.com", Password: "123", Fullname: "Test User"}
+	s.mockUC.On("RegisterUser", mock.Anything, input).Return(userpkg.User{}, errors.New("password must be at least 8 chars"))
+	w := s.performRequest("POST", "/register", input)
+	s.Equal(http.StatusBadRequest, w.Code)
+}
+
+func (s *ControllerTestSuite) TestRegister_DuplicateEmail() {
+	input := userpkg.User{Username: "user1", Email: "taken@example.com", Password: "ValidPass@123", Fullname: "Test User"}
+	s.mockUC.On("RegisterUser", mock.Anything, input).Return(userpkg.User{}, errors.New("email already taken"))
+	w := s.performRequest("POST", "/register", input)
+	s.Equal(http.StatusBadRequest, w.Code)
+}
+
+func (s *ControllerTestSuite) TestLogin_InvalidCredentials() {
+	s.mockUC.On("LoginUser", mock.Anything, "user1", "wrongpass").
+		Return(userpkg.User{}, "", "", errors.New("invalid credentials"))
+
+	w := s.performRequest("POST", "/login", map[string]string{"login": "user1", "password": "wrongpass"})
+	s.Equal(http.StatusUnauthorized, w.Code)
+}
+
+func TestControllerTestSuite(t *testing.T) {
+	suite.Run(t, new(ControllerTestSuite))
+}
