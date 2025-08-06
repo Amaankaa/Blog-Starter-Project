@@ -8,6 +8,7 @@ type Blog struct {
 	Content   string    `json:"content" bson:"content"`
 	AuthorID  string    `json:"author_id" bson:"author_id"`
 	Tags      []string  `json:"tags" bson:"tags"`
+	Likes     []string  `json:"likes" bson:"likes"`
 	CreatedAt time.Time `json:"created_at" bson:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
 }

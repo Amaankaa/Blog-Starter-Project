@@ -177,6 +177,24 @@ func (_m *IBlogUsecase) SearchBlogs(ctx context.Context, query string, paginatio
 	return r0, r1
 }
 
+// ToggleLike provides a mock function with given fields: ctx, blogID, userID
+func (_m *IBlogUsecase) ToggleLike(ctx context.Context, blogID string, userID string) error {
+	ret := _m.Called(ctx, blogID, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ToggleLike")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, blogID, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // UpdateBlog provides a mock function with given fields: ctx, id, blog
 func (_m *IBlogUsecase) UpdateBlog(ctx context.Context, id string, blog *blogpkg.Blog) (*blogpkg.Blog, error) {
 	ret := _m.Called(ctx, id, blog)

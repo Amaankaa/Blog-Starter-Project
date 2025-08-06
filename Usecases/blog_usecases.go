@@ -213,3 +213,23 @@ func normalizePagination(p blogpkg.PaginationRequest) blogpkg.PaginationRequest 
 	}
 	return p
 }
+
+func (bu *BlogUsecase) ToggleLike(ctx context.Context, blogID string, userID string) error {
+	blog, err := bu.blogRepo.GetBlogByID(blogID)
+	if err != nil {
+		return err
+	}
+
+	if blog == nil {
+		return errors.New("blog not found")
+	}
+
+	// Check if aleardy liked
+	for _, id := range blog.Likes {
+		if id == userID {
+			return bu.blogRepo.RemoveLike(ctx, blogID, userID)
+		}
+	}
+
+	return bu.blogRepo.AddLike(ctx, blogID, userID)
+}
