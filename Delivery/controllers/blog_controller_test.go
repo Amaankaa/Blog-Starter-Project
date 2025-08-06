@@ -34,6 +34,8 @@ func (s *BlogControllerSuite) SetupTest() {
 	s.router.POST("/blogs", s.controller.CreateBlog)
 	s.router.GET("/blogs", s.controller.GetAllBlogs)
 	s.router.GET("/blogs/:id", s.controller.GetBlogByID)
+	s.router.PUT("/blogs/:id", s.controller.UpdateBlog)
+	s.router.DELETE("/blogs/:id", s.controller.DeleteBlog)
 }
 
 func (s *BlogControllerSuite) TestCreateBlog_Success() {
@@ -76,7 +78,7 @@ func (s *BlogControllerSuite) TestGetAllBlogs_Success() {
 		},
 		Total:      2,
 		Page:       2,
-		Limit:   5,
+		Limit:      5,
 		TotalPages: 1,
 	}
 	pagination := blogpkg.PaginationRequest{Page: 2, Limit: 5}
@@ -152,6 +154,70 @@ func (s *BlogControllerSuite) TestGetBlogByID_Error() {
 
 	assert.Equal(http.StatusNotFound, res.Code)
 	assert.Contains(res.Body.String(), "not found")
+}
+
+func (s *BlogControllerSuite) TestUpdateBlog_Success() {
+	assert := assert.New(s.T())
+	id := "blog-1"
+	update := &blogpkg.Blog{Title: "Updated", Content: "Updated content", Tags: []string{"t1", "t2"}}
+	expected := &blogpkg.Blog{ID: id, Title: "Updated", Content: "Updated content", AuthorID: "A1", Tags: []string{"t1", "t2"}}
+	s.blogUsecase.On("UpdateBlog", mock.Anything, id, mock.AnythingOfType("*blogpkg.Blog")).Return(expected, nil)
+
+	body, _ := json.Marshal(update)
+	req, _ := http.NewRequest("PUT", "/blogs/"+id, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusOK, res.Code)
+	var resp blogpkg.Blog
+	err := json.Unmarshal(res.Body.Bytes(), &resp)
+	assert.NoError(err)
+	assert.Equal(expected.ID, resp.ID)
+	assert.Equal(expected.Title, resp.Title)
+	assert.Equal(expected.Content, resp.Content)
+	assert.ElementsMatch(expected.Tags, resp.Tags)
+}
+
+func (s *BlogControllerSuite) TestUpdateBlog_Error() {
+	assert := assert.New(s.T())
+	id := "blog-1"
+	s.blogUsecase.On("UpdateBlog", mock.Anything, id, mock.AnythingOfType("*blogpkg.Blog")).Return((*blogpkg.Blog)(nil), errors.New("update failed"))
+
+	update := &blogpkg.Blog{Title: "Updated", Content: "Updated content", Tags: []string{"t1", "t2"}}
+	body, _ := json.Marshal(update)
+	req, _ := http.NewRequest("PUT", "/blogs/"+id, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusBadRequest, res.Code)
+	assert.Contains(res.Body.String(), "update failed")
+}
+
+func (s *BlogControllerSuite) TestDeleteBlog_Success() {
+	assert := assert.New(s.T())
+	id := "blog-1"
+	s.blogUsecase.On("DeleteBlog", mock.Anything, id).Return(nil)
+
+	req, _ := http.NewRequest("DELETE", "/blogs/"+id, nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusNoContent, res.Code)
+}
+
+func (s *BlogControllerSuite) TestDeleteBlog_Error() {
+	assert := assert.New(s.T())
+	id := "blog-1"
+	s.blogUsecase.On("DeleteBlog", mock.Anything, id).Return(errors.New("delete failed"))
+
+	req, _ := http.NewRequest("DELETE", "/blogs/"+id, nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusBadRequest, res.Code)
+	assert.Contains(res.Body.String(), "delete failed")
 }
 
 func TestBlogControllerSuite(t *testing.T) {

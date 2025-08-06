@@ -45,6 +45,24 @@ func (_m *IBlogRepository) CreateBlog(blog *blogpkg.Blog) (*blogpkg.Blog, error)
 	return r0, r1
 }
 
+// DeleteBlog provides a mock function with given fields: id
+func (_m *IBlogRepository) DeleteBlog(id string) error {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteBlog")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string) error); ok {
+		r0 = rf(id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // GetAllBlogs provides a mock function with given fields: ctx, pagination
 func (_m *IBlogRepository) GetAllBlogs(ctx context.Context, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
 	ret := _m.Called(ctx, pagination)
@@ -96,6 +114,36 @@ func (_m *IBlogRepository) GetBlogByID(id string) (*blogpkg.Blog, error) {
 
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// UpdateBlog provides a mock function with given fields: id, blog
+func (_m *IBlogRepository) UpdateBlog(id string, blog *blogpkg.Blog) (*blogpkg.Blog, error) {
+	ret := _m.Called(id, blog)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateBlog")
+	}
+
+	var r0 *blogpkg.Blog
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string, *blogpkg.Blog) (*blogpkg.Blog, error)); ok {
+		return rf(id, blog)
+	}
+	if rf, ok := ret.Get(0).(func(string, *blogpkg.Blog) *blogpkg.Blog); ok {
+		r0 = rf(id, blog)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*blogpkg.Blog)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string, *blogpkg.Blog) error); ok {
+		r1 = rf(id, blog)
 	} else {
 		r1 = ret.Error(1)
 	}

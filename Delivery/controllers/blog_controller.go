@@ -95,3 +95,48 @@ func ParseInt64(s string) (int64, error) {
 	_, err := fmt.Sscan(s, &v)
 	return v, err
 }
+
+// UpdateBlog handles updating an existing blog post
+func (bc *BlogController) UpdateBlog(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Blog ID is required"})
+		return
+	}
+
+	var blog blogpkg.Blog
+	if err := c.ShouldBindJSON(&blog); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "details": err.Error()})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+
+	updatedBlog, err := bc.blogUsecase.UpdateBlog(ctx, id, &blog)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, updatedBlog)
+}
+
+// DeleteBlog handles deleting a blog post
+func (bc *BlogController) DeleteBlog(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Blog ID is required"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := bc.blogUsecase.DeleteBlog(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusNoContent, nil)
+}
+
