@@ -11,6 +11,7 @@ type IUserRepository interface {
 	CreateUser(ctx context.Context, user User) (User, error)
 	GetUserByLogin(ctx context.Context, login string) (User, error)
 	UpdatePasswordByEmail(ctx context.Context, email, hashedPassword string) error
+	UpdateUserRoleByID(ctx context.Context, userID, role string) error
 }
 
 type ITokenRepository interface {
@@ -21,8 +22,8 @@ type ITokenRepository interface {
 }
 
 type IPasswordResetRepository interface {
-    StoreResetRequest(ctx context.Context, reset PasswordReset) error
-    GetResetRequest(ctx context.Context, email string) (PasswordReset, error)
-    DeleteResetRequest(ctx context.Context, email string) error
+	StoreResetRequest(ctx context.Context, reset PasswordReset) error
+	GetResetRequest(ctx context.Context, email string) (PasswordReset, error)
+	DeleteResetRequest(ctx context.Context, email string) error
 	IncrementAttemptCount(ctx context.Context, email string) error
 }

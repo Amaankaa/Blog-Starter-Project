@@ -340,8 +340,8 @@ func (s *UserUsecaseTestSuite) TestSendResetOTP_Success() {
 	s.mockUserRepo.On("ExistsByEmail", s.ctx, email).Return(true, nil)
 	s.mockEmailSender.On("SendEmail", "user@example.com", "Your OTP Code", mock.Anything).Return(nil)
 	s.mockPasswordSvc.
-    On("HashPassword", mock.Anything).
-    Return(hashedOTP, nil)
+	On("HashPassword", mock.Anything).
+	Return(hashedOTP, nil)
 
 	s.mockResetRepo.On("StoreResetRequest", s.ctx, mock.Anything).Return(nil)
 
@@ -625,4 +625,22 @@ func (s *UserUsecaseTestSuite) TestLogout_FailureFromTokenRepo() {
 	// Assert
 	s.EqualError(err, expectedErr.Error())
 	s.mockTokenRepo.AssertCalled(s.T(), "DeleteTokensByUserID", mock.Anything, userID) // <-- Fix here
+}
+
+// TestPromoteUser_CallsRepo ensures PromoteUser calls the repository
+func (s *UserUsecaseTestSuite) TestPromoteUser_CallsRepo() {
+   id := "user123"
+   s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "admin").Return(nil)
+   err := s.usecase.PromoteUser(s.ctx, id)
+   s.NoError(err)
+   s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "admin")
+}
+
+// TestDemoteUser_CallsRepo ensures DemoteUser calls the repository
+func (s *UserUsecaseTestSuite) TestDemoteUser_CallsRepo() {
+   id := "user456"
+   s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "user").Return(nil)
+   err := s.usecase.DemoteUser(s.ctx, id)
+   s.NoError(err)
+   s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "user")
 }
