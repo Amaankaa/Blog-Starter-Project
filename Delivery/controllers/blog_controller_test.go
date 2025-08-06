@@ -36,6 +36,8 @@ func (s *BlogControllerSuite) SetupTest() {
 	s.router.GET("/blogs/:id", s.controller.GetBlogByID)
 	s.router.PUT("/blogs/:id", s.controller.UpdateBlog)
 	s.router.DELETE("/blogs/:id", s.controller.DeleteBlog)
+	s.router.GET("/blogs/search", s.controller.SearchBlogs)
+	s.router.GET("/blogs/filter", s.controller.FilterByTags)
 }
 
 func (s *BlogControllerSuite) TestCreateBlog_Success() {
@@ -218,6 +220,134 @@ func (s *BlogControllerSuite) TestDeleteBlog_Error() {
 
 	assert.Equal(http.StatusBadRequest, res.Code)
 	assert.Contains(res.Body.String(), "delete failed")
+}
+
+func (s *BlogControllerSuite) TestSearchBlogs_Success() {
+	assert := assert.New(s.T())
+	now := time.Now()
+	expected := blogpkg.PaginationResponse{
+		Data: []blogpkg.Blog{
+			{ID: "1", Title: "Go Mongo", Content: "Learning Go with MongoDB", AuthorID: "author-1", Tags: []string{"go", "mongo"}, CreatedAt: now, UpdatedAt: now},
+			{ID: "2", Title: "Go Testing", Content: "Testing in Go is fun", AuthorID: "author-2", Tags: []string{"go", "test"}, CreatedAt: now, UpdatedAt: now},
+		},
+		Total:      2,
+		Page:       1,
+		Limit:      10,
+		TotalPages: 1,
+	}
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	s.blogUsecase.On("SearchBlogs", mock.Anything, "go", pagination).Return(expected, nil)
+
+	req, _ := http.NewRequest("GET", "/blogs/search?q=go&page=1&limit=10", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusOK, res.Code)
+	var resp blogpkg.PaginationResponse
+	err := json.Unmarshal(res.Body.Bytes(), &resp)
+	assert.NoError(err)
+	assert.Equal(expected.Total, resp.Total)
+	assert.Equal(expected.Page, resp.Page)
+	assert.Equal(expected.Limit, resp.Limit)
+	assert.Equal(expected.TotalPages, resp.TotalPages)
+	assert.Len(resp.Data, len(expected.Data))
+	for i, exp := range expected.Data {
+		got := resp.Data[i]
+		assert.Equal(exp.ID, got.ID)
+		assert.Equal(exp.Title, got.Title)
+		assert.Equal(exp.Content, got.Content)
+		assert.Equal(exp.AuthorID, got.AuthorID)
+		assert.ElementsMatch(exp.Tags, got.Tags)
+		assert.WithinDuration(exp.CreatedAt, got.CreatedAt, time.Second)
+		assert.WithinDuration(exp.UpdatedAt, got.UpdatedAt, time.Second)
+	}
+}
+
+func (s *BlogControllerSuite) TestSearchBlogs_EmptyQuery() {
+	assert := assert.New(s.T())
+	req, _ := http.NewRequest("GET", "/blogs/search", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+	assert.Equal(http.StatusBadRequest, res.Code)
+	assert.Contains(res.Body.String(), "Search query is required")
+}
+
+func (s *BlogControllerSuite) TestSearchBlogs_ErrorFromUsecase() {
+	assert := assert.New(s.T())
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	s.blogUsecase.On("SearchBlogs", mock.Anything, "go", pagination).Return(blogpkg.PaginationResponse{}, errors.New("repo error"))
+
+	req, _ := http.NewRequest("GET", "/blogs/search?q=go&page=1&limit=10", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusInternalServerError, res.Code)
+	assert.Contains(res.Body.String(), "repo error")
+}
+
+func (s *BlogControllerSuite) TestFilterByTags_Success() {
+	assert := assert.New(s.T())
+	now := time.Now()
+	tags := []string{"go"}
+	expected := blogpkg.PaginationResponse{
+		Data: []blogpkg.Blog{
+			{ID: "1", Title: "Go Mongo", Content: "Learning Go with MongoDB", AuthorID: "author-1", Tags: []string{"go", "mongo"}, CreatedAt: now, UpdatedAt: now},
+			{ID: "2", Title: "Go Testing", Content: "Testing in Go is fun", AuthorID: "author-2", Tags: []string{"go", "test"}, CreatedAt: now, UpdatedAt: now},
+		},
+		Total:      2,
+		Page:       1,
+		Limit:      10,
+		TotalPages: 1,
+	}
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	s.blogUsecase.On("FilterByTags", mock.Anything, tags, pagination).Return(expected, nil)
+
+	req, _ := http.NewRequest("GET", "/blogs/filter?tags=go&page=1&limit=10", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusOK, res.Code)
+	var resp blogpkg.PaginationResponse
+	err := json.Unmarshal(res.Body.Bytes(), &resp)
+	assert.NoError(err)
+	assert.Equal(expected.Total, resp.Total)
+	assert.Equal(expected.Page, resp.Page)
+	assert.Equal(expected.Limit, resp.Limit)
+	assert.Equal(expected.TotalPages, resp.TotalPages)
+	assert.Len(resp.Data, len(expected.Data))
+	for i, exp := range expected.Data {
+		got := resp.Data[i]
+		assert.Equal(exp.ID, got.ID)
+		assert.Equal(exp.Title, got.Title)
+		assert.Equal(exp.Content, got.Content)
+		assert.Equal(exp.AuthorID, got.AuthorID)
+		assert.ElementsMatch(exp.Tags, got.Tags)
+		assert.WithinDuration(exp.CreatedAt, got.CreatedAt, time.Second)
+		assert.WithinDuration(exp.UpdatedAt, got.UpdatedAt, time.Second)
+	}
+}
+
+func (s *BlogControllerSuite) TestFilterByTags_EmptyTags() {
+	assert := assert.New(s.T())
+	req, _ := http.NewRequest("GET", "/blogs/filter", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+	assert.Equal(http.StatusBadRequest, res.Code)
+	assert.Contains(res.Body.String(), "At least one tag is required")
+}
+
+func (s *BlogControllerSuite) TestFilterByTags_ErrorFromUsecase() {
+	assert := assert.New(s.T())
+	tags := []string{"go"}
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	s.blogUsecase.On("FilterByTags", mock.Anything, tags, pagination).Return(blogpkg.PaginationResponse{}, errors.New("repo error"))
+
+	req, _ := http.NewRequest("GET", "/blogs/filter?tags=go&page=1&limit=10", nil)
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusInternalServerError, res.Code)
+	assert.Contains(res.Body.String(), "repo error")
 }
 
 func TestBlogControllerSuite(t *testing.T) {

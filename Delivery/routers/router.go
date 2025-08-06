@@ -30,6 +30,8 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	protected.GET("/blog/:id", blogController.GetBlogByID)
 	protected.PUT("/blog/:id", blogController.UpdateBlog)
 	protected.DELETE("/blog/:id", blogController.DeleteBlog)
+	protected.GET("/blog/search", blogController.SearchBlogs)
+	protected.GET("/blog/filter", blogController.FilterByTags)
 
 	return r
 }

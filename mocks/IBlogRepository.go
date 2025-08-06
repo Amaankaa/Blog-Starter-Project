@@ -63,6 +63,34 @@ func (_m *IBlogRepository) DeleteBlog(id string) error {
 	return r0
 }
 
+// FilterByTags provides a mock function with given fields: ctx, tags, pagination
+func (_m *IBlogRepository) FilterByTags(ctx context.Context, tags []string, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
+	ret := _m.Called(ctx, tags, pagination)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FilterByTags")
+	}
+
+	var r0 blogpkg.PaginationResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []string, blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error)); ok {
+		return rf(ctx, tags, pagination)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []string, blogpkg.PaginationRequest) blogpkg.PaginationResponse); ok {
+		r0 = rf(ctx, tags, pagination)
+	} else {
+		r0 = ret.Get(0).(blogpkg.PaginationResponse)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []string, blogpkg.PaginationRequest) error); ok {
+		r1 = rf(ctx, tags, pagination)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAllBlogs provides a mock function with given fields: ctx, pagination
 func (_m *IBlogRepository) GetAllBlogs(ctx context.Context, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
 	ret := _m.Called(ctx, pagination)
@@ -114,6 +142,34 @@ func (_m *IBlogRepository) GetBlogByID(id string) (*blogpkg.Blog, error) {
 
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SearchBlogs provides a mock function with given fields: ctx, query, pagination
+func (_m *IBlogRepository) SearchBlogs(ctx context.Context, query string, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
+	ret := _m.Called(ctx, query, pagination)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SearchBlogs")
+	}
+
+	var r0 blogpkg.PaginationResponse
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error)); ok {
+		return rf(ctx, query, pagination)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, blogpkg.PaginationRequest) blogpkg.PaginationResponse); ok {
+		r0 = rf(ctx, query, pagination)
+	} else {
+		r0 = ret.Get(0).(blogpkg.PaginationResponse)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, blogpkg.PaginationRequest) error); ok {
+		r1 = rf(ctx, query, pagination)
 	} else {
 		r1 = ret.Error(1)
 	}

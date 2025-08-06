@@ -99,3 +99,85 @@ func (br *BlogRepository) DeleteBlog(id string) error {
 	}
 	return nil
 }
+
+func (br *BlogRepository) SearchBlogs(ctx context.Context, query string, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
+	// Create a regex filter for the search query
+	filter := bson.M{
+		"$or": []bson.M{
+			{"title": bson.M{"$regex": query, "$options": "i"}},
+			{"content": bson.M{"$regex": query, "$options": "i"}},
+		},
+	}
+
+	// Get total count
+	total, err := br.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return blogpkg.PaginationResponse{}, err
+	}
+
+	// Apply pagination with skip and limit
+	offset := int64((pagination.Page - 1) * pagination.Limit)
+	findOptions := options.Find().
+		SetLimit(int64(pagination.Limit)).
+		SetSkip(offset).
+		SetSort(bson.D{{Key: "created_at", Value: -1}}) // Sort by created_at descending
+
+	cursor, err := br.collection.Find(ctx, filter, findOptions)
+	if err != nil {
+		return blogpkg.PaginationResponse{}, err
+	}
+	defer cursor.Close(ctx)
+
+	var blogs []blogpkg.Blog
+	if err = cursor.All(ctx, &blogs); err != nil {
+		return blogpkg.PaginationResponse{}, err
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(pagination.Limit)))
+
+	return blogpkg.PaginationResponse{
+		Data:       blogs,
+		Total:      total,
+		Page:       pagination.Page,
+		Limit:      pagination.Limit,
+		TotalPages: totalPages,
+	}, nil
+}
+
+func (br *BlogRepository) FilterByTags(ctx context.Context, tags []string, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
+	// Create filter for tags
+	filter := bson.M{"tags": bson.M{"$in": tags}}
+
+	// Get total count
+	total, err := br.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return blogpkg.PaginationResponse{}, err
+	}	
+	// Apply pagination with skip and limit
+	offset := int64((pagination.Page - 1) * pagination.Limit)
+	findOptions := options.Find().
+		SetLimit(int64(pagination.Limit)).
+		SetSkip(offset).
+		SetSort(bson.D{{Key: "created_at", Value: -1}}) // Sort by created_at descending
+
+	cursor, err := br.collection.Find(ctx, filter, findOptions)
+	if err != nil {
+		return blogpkg.PaginationResponse{}, err
+	}
+	defer cursor.Close(ctx)
+
+	var blogs []blogpkg.Blog
+	if err = cursor.All(ctx, &blogs); err != nil {
+		return blogpkg.PaginationResponse{}, err
+	}
+
+	totalPages := int(math.Ceil(float64(total) / float64(pagination.Limit)))
+
+	return blogpkg.PaginationResponse{
+		Data:       blogs,
+		Total:      total,
+		Page:       pagination.Page,
+		Limit:      pagination.Limit,
+		TotalPages: totalPages,
+	}, nil
+}

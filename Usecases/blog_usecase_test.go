@@ -253,3 +253,123 @@ func (s *BlogUsecaseSuite) TestDeleteBlog_Unauthorized() {
 	assert.Contains(err.Error(), "unauthorized")
 	s.blogRepo.AssertExpectations(s.T())
 }
+
+func (s *BlogUsecaseSuite) TestSearchBlogs_Success() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	query := "go"
+	expected := blogpkg.PaginationResponse{
+		Data: []blogpkg.Blog{
+			{ID: "1", Title: "Go Mongo", Content: "Learning Go with MongoDB", AuthorID: "author-1", Tags: []string{"go", "mongo"}},
+			{ID: "2", Title: "Go Testing", Content: "Testing in Go is fun", AuthorID: "author-2", Tags: []string{"go", "test"}},
+		},
+		Total:      2,
+		Page:       1,
+		Limit:      10,
+		TotalPages: 1,
+	}
+	s.blogRepo.On("SearchBlogs", ctx, query, pagination).Return(expected, nil).Once()
+	resp, err := s.blogUC.SearchBlogs(ctx, query, pagination)
+	assert.NoError(err)
+	assert.Equal(expected.Total, resp.Total)
+	assert.Equal(expected.Page, resp.Page)
+	assert.Equal(expected.Limit, resp.Limit)
+	assert.Equal(expected.TotalPages, resp.TotalPages)
+	assert.Len(resp.Data, len(expected.Data))
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestSearchBlogs_EmptyQuery() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	resp, err := s.blogUC.SearchBlogs(ctx, "", pagination)
+	assert.Error(err)
+	assert.Contains(err.Error(), "search query cannot be empty")
+	assert.Equal(int64(0), resp.Total)
+}
+
+func (s *BlogUsecaseSuite) TestSearchBlogs_ErrorFromRepo() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	query := "go"
+	s.blogRepo.On("SearchBlogs", ctx, query, pagination).Return(blogpkg.PaginationResponse{}, errors.New("repo error")).Once()
+	resp, err := s.blogUC.SearchBlogs(ctx, query, pagination)
+	assert.Error(err)
+	assert.Contains(err.Error(), "repo error")
+	assert.Equal(int64(0), resp.Total)
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestFilterByTags_Success() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	tags := []string{"go"}
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	expected := blogpkg.PaginationResponse{
+		Data: []blogpkg.Blog{
+			{ID: "1", Title: "Go Mongo", Content: "Learning Go with MongoDB", AuthorID: "author-1", Tags: []string{"go", "mongo"}},
+			{ID: "2", Title: "Go Testing", Content: "Testing in Go is fun", AuthorID: "author-2", Tags: []string{"go", "test"}},
+		},
+		Total:      2,
+		Page:       1,
+		Limit:      10,
+		TotalPages: 1,
+	}
+	s.blogRepo.On("FilterByTags", ctx, tags, pagination).Return(expected, nil).Once()
+	resp, err := s.blogUC.FilterByTags(ctx, tags, pagination)
+	assert.NoError(err)
+	assert.Equal(expected.Total, resp.Total)
+	assert.Equal(expected.Page, resp.Page)
+	assert.Equal(expected.Limit, resp.Limit)
+	assert.Equal(expected.TotalPages, resp.TotalPages)
+	assert.Len(resp.Data, len(expected.Data))
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestFilterByTags_EmptyTags() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	resp, err := s.blogUC.FilterByTags(ctx, []string{}, pagination)
+	assert.Error(err)
+	assert.Contains(err.Error(), "tags cannot be empty")
+	assert.Equal(int64(0), resp.Total)
+}
+
+func (s *BlogUsecaseSuite) TestFilterByTags_TooManyTags() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	tags := []string{"a", "b", "c", "d", "e", "f"}
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	resp, err := s.blogUC.FilterByTags(ctx, tags, pagination)
+	assert.Error(err)
+	assert.Contains(err.Error(), "too many tags")
+	assert.Equal(int64(0), resp.Total)
+}
+
+func (s *BlogUsecaseSuite) TestFilterByTags_EmptyTagValue() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	tags := []string{"go", ""}
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	resp, err := s.blogUC.FilterByTags(ctx, tags, pagination)
+	assert.Error(err)
+	assert.Contains(err.Error(), "tag cannot be empty")
+	assert.Equal(int64(0), resp.Total)
+}
+
+func (s *BlogUsecaseSuite) TestFilterByTags_ErrorFromRepo() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	tags := []string{"go"}
+	pagination := blogpkg.PaginationRequest{Page: 1, Limit: 10}
+	s.blogRepo.On("FilterByTags", ctx, tags, pagination).Return(blogpkg.PaginationResponse{}, errors.New("repo error")).Once()
+	resp, err := s.blogUC.FilterByTags(ctx, tags, pagination)
+	assert.Error(err)
+	assert.Contains(err.Error(), "repo error")
+	assert.Equal(int64(0), resp.Total)
+	s.blogRepo.AssertExpectations(s.T())
+}
