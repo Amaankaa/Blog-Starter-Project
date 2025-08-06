@@ -38,9 +38,15 @@ func (s *ControllerTestSuite) SetupTest() {
 
 func (s *ControllerTestSuite) performRequest(method, path string, body interface{}) *httptest.ResponseRecorder {
 	var b []byte
+	var err error
 	if body != nil {
-		b, _ = json.Marshal(body)
+		b, err = json.Marshal(body)
 	}
+
+	if err != nil {
+		s.FailNow("Failed to marshal body", err)
+	}
+	
 	req := httptest.NewRequest(method, path, bytes.NewBuffer(b))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
