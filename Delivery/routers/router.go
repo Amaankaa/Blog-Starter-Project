@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter(controller *controllers.Controller, blogController *controllers.BlogController, authMiddleware *infrastructure.AuthMiddleware) *gin.Engine {
+func SetupRouter(controller *controllers.Controller, blogController *controllers.BlogController, authMiddleware *infrastructure.AuthMiddleware, aiController *controllers.AIController) *gin.Engine {
 	r := gin.Default()
 
 	// Public routes
@@ -16,7 +16,7 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	r.POST("/forgot-password", controller.ForgotPassword)
 	r.POST("/verify-otp", controller.VerifyOTP)
 	r.POST("/reset-password", controller.ResetPassword)
-
+	
 	// Protected routes
 	protected := r.Group("")
 	protected.Use(authMiddleware.AuthMiddleware())
@@ -38,6 +38,10 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	protected.DELETE("/blog/:id", blogController.DeleteBlog)
 	protected.GET("/blog/search", blogController.SearchBlogs)
 	protected.GET("/blog/filter", blogController.FilterByTags)
+	
+
+	// AI routes
+	protected.POST("/ai/suggest-content", aiController.SuggestContent)
 
 	return r
 }

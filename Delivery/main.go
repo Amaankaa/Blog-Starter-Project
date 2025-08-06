@@ -58,6 +58,15 @@ func main() {
 	tokenRepo := repositories.NewTokenRepository(tokenCollection)
 	blogRepo := repositories.NewBlogRepository(blogCollection)
 	passwordResetRepo := repositories.NewPasswordResetRepo(passwordResetCollection, userCollection)
+	//ai
+	aiAPIKey := os.Getenv("GEMINI_API_KEY")
+	if aiAPIKey == "" {
+		log.Fatal("GEMINI_API_KEY not set in environment")
+	}
+	aiAPIURL := os.Getenv("GEMINI_API_URL")
+	if aiAPIURL == "" {
+		log.Fatal("GEMINI_API_URL not set in environment")
+	}		
 
 	//Usecase: handles business logic, gets all dependencies
 	userUsecase := usecases.NewUserUsecase(
@@ -70,16 +79,16 @@ func main() {
 	passwordResetRepo,
 )
 	blogUsecase := usecases.NewBlogUsecase(blogRepo)
-
+	aiUseCase := usecases.NewAIUseCase(aiAPIKey, aiAPIURL)
 	//Controller
 	controller := controllers.NewController(userUsecase)
 	blogController := controllers.NewBlogController(blogUsecase)
-
+	aiController := controllers.NewAIController(aiUseCase)
 	// Initialize AuthMiddleware
 	authMiddleware := infrastructure.NewAuthMiddleware(jwtService)
 
 	//Router
-	r := routers.SetupRouter(controller, blogController, authMiddleware)
+	r := routers.SetupRouter(controller, blogController, authMiddleware, aiController)
 
 	//Start Server
 	log.Println("Server running on :8080")
