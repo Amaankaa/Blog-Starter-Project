@@ -2,11 +2,11 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
 	blogpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/blog"
-	usecases "github.com/Amaankaa/Blog-Starter-Project/Usecases"
 	"github.com/gin-gonic/gin"
 )
 
@@ -63,12 +63,12 @@ func (bc *BlogController) GetAllBlogs(c *gin.Context) {
 	page := 1
 	limit := 10
 	if p := c.Query("page"); p != "" {
-		if v, err := usecases.ParseInt64(p); err == nil && v > 0 {
+		if v, err := ParseInt64(p); err == nil && v > 0 {
 			page = int(v)
 		}
 	}
 	if ps := c.Query("limit"); ps != "" {
-		if v, err := usecases.ParseInt64(ps); err == nil && v > 0 {
+		if v, err := ParseInt64(ps); err == nil && v > 0 {
 			limit = int(v)
 		}
 	}
@@ -158,19 +158,19 @@ func (bc *BlogController) SearchBlogs(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
-// Healper function
+// Helper function
 func parsePaginationParams(c *gin.Context, defaultPage, defaultLimit int) (int, int) {
 	page := defaultPage
 	limit := defaultLimit
 
 	if p := c.Query("page"); p != "" {
-		if v, err := usecases.ParseInt64(p); err == nil && v > 0 {
+		if v, err := ParseInt64(p); err == nil && v > 0 {
 			page = int(v)
 		}
 	}
 
 	if ps := c.Query("limit"); ps != "" {
-		if v, err := usecases.ParseInt64(ps); err == nil && v > 0 {
+		if v, err := ParseInt64(ps); err == nil && v > 0 {
 			limit = int(v)
 		}
 	}
@@ -202,4 +202,10 @@ func (bc *BlogController) FilterByTags(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+func ParseInt64(s string) (int64, error) {
+	var v int64
+	_, err := fmt.Sscan(s, &v)
+	return v, err
 }

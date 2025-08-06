@@ -184,7 +184,7 @@ func (bu *BlogUsecase) FilterByTags(ctx context.Context, tags []string, paginati
 
 	// Call the repository to filter blogs by tags
 	if len(tags) > 5 {
-		return blogpkg.PaginationResponse{}, errors.New("too many tags, maximum is 10")
+		return blogpkg.PaginationResponse{}, errors.New("too many tags, maximum is 5")
 	}
 
 	for _, tag := range tags {
@@ -198,12 +198,6 @@ func (bu *BlogUsecase) FilterByTags(ctx context.Context, tags []string, paginati
 		return blogpkg.PaginationResponse{}, err
 	}
 	return result, nil
-}
-
-func ParseInt64(s string) (int64, error) {
-	var v int64
-	_, err := fmt.Sscan(s, &v)
-	return v, err
 }
 
 // helper function
