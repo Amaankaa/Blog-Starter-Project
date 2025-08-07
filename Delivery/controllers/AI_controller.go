@@ -4,49 +4,60 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time" // Added for context timeout in main.go snippet
+	"strings"
+	"time"
 
-	"github.com/gin-gonic/gin" // Assuming Gin framework for routing
+	"github.com/gin-gonic/gin"
 
 	aidomain "github.com/Amaankaa/Blog-Starter-Project/Domain/AI"
-	
 )
 
-// AIController handles HTTP requests related to AI features.
 type AIController struct {
 	aiUseCase aidomain.IAIUseCase
 }
 
-// NewAIController creates a new instance of AIController.
 func NewAIController(useCase aidomain.IAIUseCase) *AIController {
 	return &AIController{
 		aiUseCase: useCase,
 	}
 }
 
-
-// @Router /ai/suggest-content [post]
 func (ctrl *AIController) SuggestContent(c *gin.Context) {
 	var req aidomain.AIRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, aidomain.AIResponse{Error: fmt.Sprintf("Invalid request payload: %v", err.Error())})
 		return
 	}
+	keywords := strings.Split(req.Keywords, " ")
+	if len(keywords) > 5 {
+		c.JSON(http.StatusBadRequest, aidomain.AIResponse{Error: "Keywords must be 5 words or less."})
+		return
+	}
 
-	ctx, cancel := c.Request.Context(), func() {} // Initialize cancel to a no-op function
+	// Character limits for keywords and existing content
+	const maxKeywordsLength = 100
+	const maxContentLength = 5000
+
+	if len(req.Keywords) > maxKeywordsLength {
+		c.JSON(http.StatusBadRequest, aidomain.AIResponse{Error: fmt.Sprintf("Keywords must be under %d characters.", maxKeywordsLength)})
+		return
+	}
+
+	if len(req.ExistingContent) > maxContentLength {
+		c.JSON(http.StatusBadRequest, aidomain.AIResponse{Error: fmt.Sprintf("Existing content must be under %d characters.", maxContentLength)})
+		return
+	}
+	ctx, cancel := c.Request.Context(), func() {}
 	if c.Request.Context() != nil {
-		ctx, cancel = context.WithTimeout(c.Request.Context(), 60*time.Second) // Increased timeout for AI calls
+		ctx, cancel = context.WithTimeout(c.Request.Context(), 60*time.Second)
 	}
 	defer cancel()
 
-	// Call the AI use case to get suggestions
 	resp, err := ctrl.aiUseCase.GenerateContentSuggestions(ctx, &req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, aidomain.AIResponse{Error: fmt.Sprintf("Failed to get AI suggestions: %v", err.Error())})
 		return
 	}
 
-	// Return the AI-generated suggestion
 	c.JSON(http.StatusOK, resp)
 }
-
