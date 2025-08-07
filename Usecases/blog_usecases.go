@@ -241,13 +241,13 @@ func (bu *BlogUsecase) AddComment(ctx context.Context, comment *blogpkg.Comment,
 		return nil, errors.New("blog not found")
 	}
 
-	comment = &blogpkg.Comment{
+	newComment := &blogpkg.Comment{
 		BlogID:    comment.BlogID,
 		UserID:    comment.UserID,
 		Content:   comment.Content,
 		CreatedAt: time.Now(),
 	}
 
-	return bu.blogRepo.AddComment(ctx, comment)
+	return bu.blogRepo.AddComment(ctx, newComment)
 	}
 	
