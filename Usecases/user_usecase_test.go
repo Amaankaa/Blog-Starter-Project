@@ -7,7 +7,7 @@ import (
 	"time"
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
-	"github.com/Amaankaa/Blog-Starter-Project/Usecases"
+	usecases "github.com/Amaankaa/Blog-Starter-Project/Usecases"
 	"github.com/Amaankaa/Blog-Starter-Project/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -50,6 +50,7 @@ func (s *UserUsecaseTestSuite) SetupTest() {
 		s.mockEmailVerifier,
 		s.mockEmailSender,
 		s.mockResetRepo,
+		nil,
 	)
 }
 
@@ -193,9 +194,9 @@ func (s *UserUsecaseTestSuite) TestRejectDuplicateEmail() {
 
 func (s *UserUsecaseTestSuite) TestRejectEmptyFields() {
 	testCases := []struct {
-		name     string
-		user     userpkg.User
-		field    string
+		name  string
+		user  userpkg.User
+		field string
 	}{
 		{"EmptyUsername", userpkg.User{Email: "test@example.com", Password: "Pass123!", Fullname: "Test"}, "username"},
 		{"EmptyEmail", userpkg.User{Username: "testuser", Password: "Pass123!", Fullname: "Test"}, "email"},
@@ -340,8 +341,8 @@ func (s *UserUsecaseTestSuite) TestSendResetOTP_Success() {
 	s.mockUserRepo.On("ExistsByEmail", s.ctx, email).Return(true, nil)
 	s.mockEmailSender.On("SendEmail", "user@example.com", "Your OTP Code", mock.Anything).Return(nil)
 	s.mockPasswordSvc.
-	On("HashPassword", mock.Anything).
-	Return(hashedOTP, nil)
+		On("HashPassword", mock.Anything).
+		Return(hashedOTP, nil)
 
 	s.mockResetRepo.On("StoreResetRequest", s.ctx, mock.Anything).Return(nil)
 
@@ -629,18 +630,18 @@ func (s *UserUsecaseTestSuite) TestLogout_FailureFromTokenRepo() {
 
 // TestPromoteUser_CallsRepo ensures PromoteUser calls the repository
 func (s *UserUsecaseTestSuite) TestPromoteUser_CallsRepo() {
-   id := "user123"
-   s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "admin").Return(nil)
-   err := s.usecase.PromoteUser(s.ctx, id)
-   s.NoError(err)
-   s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "admin")
+	id := "user123"
+	s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "admin").Return(nil)
+	err := s.usecase.PromoteUser(s.ctx, id)
+	s.NoError(err)
+	s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "admin")
 }
 
 // TestDemoteUser_CallsRepo ensures DemoteUser calls the repository
 func (s *UserUsecaseTestSuite) TestDemoteUser_CallsRepo() {
-   id := "user456"
-   s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "user").Return(nil)
-   err := s.usecase.DemoteUser(s.ctx, id)
-   s.NoError(err)
-   s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "user")
+	id := "user456"
+	s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "user").Return(nil)
+	err := s.usecase.DemoteUser(s.ctx, id)
+	s.NoError(err)
+	s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "user")
 }

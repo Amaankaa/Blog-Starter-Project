@@ -12,6 +12,7 @@ type IUserRepository interface {
 	GetUserByLogin(ctx context.Context, login string) (User, error)
 	UpdatePasswordByEmail(ctx context.Context, email, hashedPassword string) error
 	UpdateUserRoleByID(ctx context.Context, userID, role string) error
+	UpdateIsVerifiedByEmail(ctx context.Context, email string, verified bool) error
 }
 
 type ITokenRepository interface {
@@ -25,5 +26,12 @@ type IPasswordResetRepository interface {
 	StoreResetRequest(ctx context.Context, reset PasswordReset) error
 	GetResetRequest(ctx context.Context, email string) (PasswordReset, error)
 	DeleteResetRequest(ctx context.Context, email string) error
+	IncrementAttemptCount(ctx context.Context, email string) error
+}
+
+type IVerificationRepository interface {
+	StoreVerification(ctx context.Context, v Verification) error
+	GetVerification(ctx context.Context, email string) (Verification, error)
+	DeleteVerification(ctx context.Context, email string) error
 	IncrementAttemptCount(ctx context.Context, email string) error
 }

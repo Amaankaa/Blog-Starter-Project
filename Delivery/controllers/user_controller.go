@@ -41,8 +41,13 @@ func (ctrl *Controller) Register(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// 4a. Send verification OTP
+	if err := ctrl.userUsecase.SendVerificationOTP(ctx, createdUser.Email); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to send verification code"})
+		return
+	}
 
-	// 4. Success response
+	// 5. Success response
 	c.JSON(http.StatusCreated, createdUser)
 }
 
@@ -201,4 +206,26 @@ func (ctrl *Controller) DemoteUser(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "user demoted"})
+}
+
+func (ctrl *Controller) VerifyUser(c *gin.Context) {
+	var req struct {
+		Email string `json:"email"`
+		OTP   string `json:"otp"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	xCtx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	if err := ctrl.userUsecase.VerifyUser(xCtx, req.Email, req.OTP); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User verified"})
 }

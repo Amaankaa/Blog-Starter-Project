@@ -8,9 +8,9 @@ import (
 
 	"github.com/Amaankaa/Blog-Starter-Project/Delivery/controllers"
 	"github.com/Amaankaa/Blog-Starter-Project/Delivery/routers"
-	"github.com/Amaankaa/Blog-Starter-Project/Infrastructure"
-	"github.com/Amaankaa/Blog-Starter-Project/Repositories"
-	"github.com/Amaankaa/Blog-Starter-Project/Usecases"
+	infrastructure "github.com/Amaankaa/Blog-Starter-Project/Infrastructure"
+	repositories "github.com/Amaankaa/Blog-Starter-Project/Repositories"
+	usecases "github.com/Amaankaa/Blog-Starter-Project/Usecases"
 
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -43,6 +43,7 @@ func main() {
 	blogCollection := db.Collection("blogs")
 	passwordResetCollection := db.Collection("password_resets")
 	commentCollection := db.Collection("comments")
+	verificationCollection := db.Collection("verifications")
 
 	// Initialize infrastructure services
 	passwordService := infrastructure.NewPasswordService()
@@ -53,7 +54,7 @@ func main() {
 		log.Fatalf("Failed to initialize email verifier: %v", err)
 	}
 	emailSender := infrastructure.NewBrevoEmailSender()
-	
+
 	//Repositories: only take collection (not services)
 	userRepo := repositories.NewUserRepository(userCollection)
 	tokenRepo := repositories.NewTokenRepository(tokenCollection)
@@ -70,15 +71,17 @@ func main() {
 	}		
 
 	//Usecase: handles business logic, gets all dependencies
+	verificationRepo := repositories.NewVerificationRepo(verificationCollection)
 	userUsecase := usecases.NewUserUsecase(
-	userRepo,
-	passwordService,
-	tokenRepo,
-	jwtService,
-	emailVerifier,
-	emailSender,
-	passwordResetRepo,
-)
+		userRepo,
+		passwordService,
+		tokenRepo,
+		jwtService,
+		emailVerifier,
+		emailSender,
+		passwordResetRepo,
+		verificationRepo,
+	)
 	blogUsecase := usecases.NewBlogUsecase(blogRepo)
 	aiUseCase := usecases.NewAIUseCase(aiAPIKey, aiAPIURL)
 	//Controller
