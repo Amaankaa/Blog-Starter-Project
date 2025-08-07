@@ -202,12 +202,48 @@ func (_m *IUserUsecase) SendResetOTP(ctx context.Context, email string) error {
 	return r0
 }
 
+// SendVerificationOTP provides a mock function with given fields: ctx, email
+func (_m *IUserUsecase) SendVerificationOTP(ctx context.Context, email string) error {
+	ret := _m.Called(ctx, email)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendVerificationOTP")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, email)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // VerifyOTP provides a mock function with given fields: ctx, email, otp
 func (_m *IUserUsecase) VerifyOTP(ctx context.Context, email string, otp string) error {
 	ret := _m.Called(ctx, email, otp)
 
 	if len(ret) == 0 {
 		panic("no return value specified for VerifyOTP")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, email, otp)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// VerifyUser provides a mock function with given fields: ctx, email, otp
+func (_m *IUserUsecase) VerifyUser(ctx context.Context, email string, otp string) error {
+	ret := _m.Called(ctx, email, otp)
+
+	if len(ret) == 0 {
+		panic("no return value specified for VerifyUser")
 	}
 
 	var r0 error

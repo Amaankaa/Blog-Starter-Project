@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"strings"
+
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
-	"github.com/Amaankaa/Blog-Starter-Project/Usecases"
+	usecases "github.com/Amaankaa/Blog-Starter-Project/Usecases"
 	"github.com/Amaankaa/Blog-Starter-Project/mocks"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -16,15 +18,16 @@ import (
 
 type UserUsecaseTestSuite struct {
 	suite.Suite
-	ctx               context.Context
-	mockUserRepo      *mocks.IUserRepository
-	mockPasswordSvc   *mocks.IPasswordService
-	mockTokenRepo     *mocks.ITokenRepository
-	mockJWTService    *mocks.IJWTService
-	mockEmailVerifier *mocks.IEmailVerifier
-	mockEmailSender   *mocks.IEmailSender
-	mockResetRepo     *mocks.IPasswordResetRepository
-	usecase           *usecases.UserUsecase
+	ctx                  context.Context
+	mockUserRepo         *mocks.IUserRepository
+	mockPasswordSvc      *mocks.IPasswordService
+	mockTokenRepo        *mocks.ITokenRepository
+	mockJWTService       *mocks.IJWTService
+	mockEmailVerifier    *mocks.IEmailVerifier
+	mockEmailSender      *mocks.IEmailSender
+	mockResetRepo        *mocks.IPasswordResetRepository
+	mockVerificationRepo *mocks.IVerificationRepository
+	usecase              *usecases.UserUsecase
 }
 
 func TestUserUsecaseTestSuite(t *testing.T) {
@@ -41,6 +44,7 @@ func (s *UserUsecaseTestSuite) SetupTest() {
 	s.mockEmailVerifier = new(mocks.IEmailVerifier)
 	s.mockEmailSender = new(mocks.IEmailSender)
 	s.mockResetRepo = new(mocks.IPasswordResetRepository)
+	s.mockVerificationRepo = new(mocks.IVerificationRepository)
 
 	s.usecase = usecases.NewUserUsecase(
 		s.mockUserRepo,
@@ -50,6 +54,7 @@ func (s *UserUsecaseTestSuite) SetupTest() {
 		s.mockEmailVerifier,
 		s.mockEmailSender,
 		s.mockResetRepo,
+		s.mockVerificationRepo,
 	)
 }
 
@@ -193,9 +198,9 @@ func (s *UserUsecaseTestSuite) TestRejectDuplicateEmail() {
 
 func (s *UserUsecaseTestSuite) TestRejectEmptyFields() {
 	testCases := []struct {
-		name     string
-		user     userpkg.User
-		field    string
+		name  string
+		user  userpkg.User
+		field string
 	}{
 		{"EmptyUsername", userpkg.User{Email: "test@example.com", Password: "Pass123!", Fullname: "Test"}, "username"},
 		{"EmptyEmail", userpkg.User{Username: "testuser", Password: "Pass123!", Fullname: "Test"}, "email"},
@@ -244,12 +249,14 @@ func (s *UserUsecaseTestSuite) TestLoginUser_Success() {
 	hashedPassword := "hashedpassword"
 	userID := primitive.NewObjectID()
 
-	testUser := userpkg.User{
-		ID:       userID,
-		Username: login,
-		Password: hashedPassword,
-		Role:     "user",
-	}
+   testUser := userpkg.User{
+	   ID:         userID,
+	   Username:   login,
+	   Password:   hashedPassword,
+	   Role:       "user",
+	   // mark user as verified to pass verification check
+	   IsVerified: true,
+   }
 
 	tokenRes := userpkg.TokenResult{
 		AccessToken:      "access_token",
@@ -299,10 +306,12 @@ func (s *UserUsecaseTestSuite) TestLoginUser_WrongPassword() {
 	password := "wrongpassword"
 	hashedPassword := "hashedpassword"
 
-	testUser := userpkg.User{
-		Username: login,
-		Password: hashedPassword,
-	}
+   testUser := userpkg.User{
+	   Username:   login,
+	   Password:   hashedPassword,
+	   // mark user as verified to bypass verification check
+	   IsVerified: true,
+   }
 
 	s.mockUserRepo.On("GetUserByLogin", s.ctx, login).Return(testUser, nil)
 	s.mockPasswordSvc.On("ComparePassword", hashedPassword, password).Return(errors.New("mismatch"))
@@ -340,8 +349,8 @@ func (s *UserUsecaseTestSuite) TestSendResetOTP_Success() {
 	s.mockUserRepo.On("ExistsByEmail", s.ctx, email).Return(true, nil)
 	s.mockEmailSender.On("SendEmail", "user@example.com", "Your OTP Code", mock.Anything).Return(nil)
 	s.mockPasswordSvc.
-	On("HashPassword", mock.Anything).
-	Return(hashedOTP, nil)
+		On("HashPassword", mock.Anything).
+		Return(hashedOTP, nil)
 
 	s.mockResetRepo.On("StoreResetRequest", s.ctx, mock.Anything).Return(nil)
 
@@ -629,18 +638,79 @@ func (s *UserUsecaseTestSuite) TestLogout_FailureFromTokenRepo() {
 
 // TestPromoteUser_CallsRepo ensures PromoteUser calls the repository
 func (s *UserUsecaseTestSuite) TestPromoteUser_CallsRepo() {
-   id := "user123"
-   s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "admin").Return(nil)
-   err := s.usecase.PromoteUser(s.ctx, id)
-   s.NoError(err)
-   s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "admin")
+	id := "user123"
+	s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "admin").Return(nil)
+	err := s.usecase.PromoteUser(s.ctx, id)
+	s.NoError(err)
+	s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "admin")
 }
 
 // TestDemoteUser_CallsRepo ensures DemoteUser calls the repository
 func (s *UserUsecaseTestSuite) TestDemoteUser_CallsRepo() {
-   id := "user456"
-   s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "user").Return(nil)
-   err := s.usecase.DemoteUser(s.ctx, id)
-   s.NoError(err)
-   s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "user")
+	id := "user456"
+	s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "user").Return(nil)
+	err := s.usecase.DemoteUser(s.ctx, id)
+	s.NoError(err)
+	s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "user")
+}
+
+// TestSendVerificationOTP_Success ensures registration OTP is stored and sent
+func (s *UserUsecaseTestSuite) TestSendVerificationOTP_Success() {
+	email := "reg@example.com"
+
+	s.mockUserRepo.On("ExistsByEmail", s.ctx, email).Return(true, nil)
+	// capture generated otp
+	s.mockEmailSender.On("SendEmail", email, "Your verification code", mock.MatchedBy(func(body string) bool {
+		return strings.Contains(body, "Your code:")
+	})).Return(nil)
+	s.mockPasswordSvc.On("HashPassword", mock.Anything).Return("hashedOTP", nil)
+	s.mockVerificationRepo.On("StoreVerification", s.ctx, mock.Anything).Return(nil)
+
+	err := s.usecase.SendVerificationOTP(s.ctx, email)
+	s.NoError(err)
+	s.mockVerificationRepo.AssertCalled(s.T(), "StoreVerification", s.ctx, mock.Anything)
+}
+
+// TestVerifyUser_Success flips isVerified and deletes record
+func (s *UserUsecaseTestSuite) TestVerifyUser_Success() {
+	email := "reg@example.com"
+	otp := "654321"
+	record := userpkg.Verification{Email: email, OTP: "hashedOTP", ExpiresAt: time.Now().Add(10 * time.Minute), AttemptCount: 0}
+
+	s.mockVerificationRepo.On("GetVerification", s.ctx, email).Return(record, nil)
+	s.mockPasswordSvc.On("ComparePassword", record.OTP, otp).Return(nil)
+	s.mockVerificationRepo.On("DeleteVerification", s.ctx, email).Return(nil)
+	s.mockUserRepo.On("UpdateIsVerifiedByEmail", s.ctx, email, true).Return(nil)
+
+	err := s.usecase.VerifyUser(s.ctx, email, otp)
+	s.NoError(err)
+	s.mockUserRepo.AssertCalled(s.T(), "UpdateIsVerifiedByEmail", s.ctx, email, true)
+}
+
+// TestVerifyUser_Expired returns error and deletes
+func (s *UserUsecaseTestSuite) TestVerifyUser_Expired() {
+	email := "reg@example.com"
+	record := userpkg.Verification{Email: email, OTP: "hash", ExpiresAt: time.Now().Add(-1 * time.Minute), AttemptCount: 0}
+
+	s.mockVerificationRepo.On("GetVerification", s.ctx, email).Return(record, nil)
+	s.mockVerificationRepo.On("DeleteVerification", s.ctx, email).Return(nil)
+
+	err := s.usecase.VerifyUser(s.ctx, email, "any")
+	s.Error(err)
+	s.Contains(err.Error(), "verification code expired")
+}
+
+// TestVerifyUser_InvalidCode increments attempt counter
+func (s *UserUsecaseTestSuite) TestVerifyUser_InvalidCode() {
+	email := "reg@example.com"
+	record := userpkg.Verification{Email: email, OTP: "hash", ExpiresAt: time.Now().Add(10 * time.Minute), AttemptCount: 1}
+
+	s.mockVerificationRepo.On("GetVerification", s.ctx, email).Return(record, nil)
+	s.mockPasswordSvc.On("ComparePassword", record.OTP, "wrong").Return(errors.New("mismatch"))
+	s.mockVerificationRepo.On("IncrementAttemptCount", s.ctx, email).Return(nil)
+
+	err := s.usecase.VerifyUser(s.ctx, email, "wrong")
+	s.Error(err)
+	s.Equal("invalid code", err.Error())
+	s.mockVerificationRepo.AssertCalled(s.T(), "IncrementAttemptCount", s.ctx, email)
 }

@@ -12,6 +12,7 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 
 	// Public routes
 	r.POST("/register", controller.Register)
+	r.POST("/verify-user", controller.VerifyUser) // Registration verification (separate from password-reset OTP)
 	r.POST("/login", controller.Login)
 	r.POST("/forgot-password", controller.ForgotPassword)
 	r.POST("/verify-otp", controller.VerifyOTP)

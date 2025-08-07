@@ -182,6 +182,24 @@ func (_m *IUserRepository) GetUserByLogin(ctx context.Context, login string) (us
 	return r0, r1
 }
 
+// UpdateIsVerifiedByEmail provides a mock function with given fields: ctx, email, verified
+func (_m *IUserRepository) UpdateIsVerifiedByEmail(ctx context.Context, email string, verified bool) error {
+	ret := _m.Called(ctx, email, verified)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateIsVerifiedByEmail")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, bool) error); ok {
+		r0 = rf(ctx, email, verified)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // UpdatePasswordByEmail provides a mock function with given fields: ctx, email, hashedPassword
 func (_m *IUserRepository) UpdatePasswordByEmail(ctx context.Context, email string, hashedPassword string) error {
 	ret := _m.Called(ctx, email, hashedPassword)

@@ -2,11 +2,12 @@ package repositories_test
 
 import (
 	"context"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"log"
 	"os"
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
 	repositories "github.com/Amaankaa/Blog-Starter-Project/Repositories"
@@ -162,6 +163,32 @@ func (s *userRepositoryTestSuite) TestUpdateUserRoleByID_Success() {
 func (s *userRepositoryTestSuite) TestUpdateUserRoleByID_NotFound() {
 	fakeID := primitive.NewObjectID().Hex()
 	err := s.repo.UpdateUserRoleByID(s.ctx, fakeID, "admin")
+	s.Error(err)
+	s.Contains(err.Error(), "user not found")
+}
+
+// TestUpdateIsVerifiedByEmail_Success sets isVerified to true
+func (s *userRepositoryTestSuite) TestUpdateIsVerifiedByEmail_Success() {
+	// Arrange: create unverified user
+	usr, err := s.repo.CreateUser(s.ctx, userpkg.User{
+		Username: "verifyuser",
+		Password: "pass",
+		Email:    "verify@example.com",
+		Fullname: "Verify User",
+	})
+	s.Require().NoError(err)
+	error := s.repo.UpdateIsVerifiedByEmail(s.ctx, "verify@example.com", true)
+	s.NoError(error)
+
+	// Assert in DB
+	updated, err := s.repo.FindByID(s.ctx, usr.ID.Hex())
+	s.Require().NoError(err)
+	s.True(updated.IsVerified)
+}
+
+// TestUpdateIsVerifiedByEmail_NotFound returns error for missing user
+func (s *userRepositoryTestSuite) TestUpdateIsVerifiedByEmail_NotFound() {
+	err := s.repo.UpdateIsVerifiedByEmail(s.ctx, "notfound@example.com", true)
 	s.Error(err)
 	s.Contains(err.Error(), "user not found")
 }

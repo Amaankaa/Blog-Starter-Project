@@ -114,3 +114,17 @@ func (ur *UserRepository) UpdateUserRoleByID(ctx context.Context, userID, role s
 	}
 	return nil
 }
+
+// UpdateIsVerifiedByEmail sets a user's verification status by email
+func (ur *UserRepository) UpdateIsVerifiedByEmail(ctx context.Context, email string, verified bool) error {
+	filter := bson.M{"email": email}
+	update := bson.M{"$set": bson.M{"isVerified": verified}}
+	res, err := ur.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return errors.New("user not found")
+	}
+	return nil
+}

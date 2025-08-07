@@ -12,6 +12,8 @@ type IUserUsecase interface {
 	ResetPassword(ctx context.Context, email, newPassword string) error
 	PromoteUser(ctx context.Context, userID string) error
 	DemoteUser(ctx context.Context, userID string) error
+	SendVerificationOTP(ctx context.Context, email string) error
+	VerifyUser(ctx context.Context, email, otp string) error
 }
 
 // User Infrastructure interfaces

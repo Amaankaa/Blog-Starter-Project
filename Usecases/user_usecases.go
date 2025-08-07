@@ -18,6 +18,7 @@ type UserUsecase struct {
 	emailSender       services.IEmailSender
 	jwtService        userpkg.IJWTService
 	passwordResetRepo userpkg.IPasswordResetRepository
+	verificationRepo  userpkg.IVerificationRepository
 }
 
 func NewUserUsecase(
@@ -28,6 +29,7 @@ func NewUserUsecase(
 	emailVerifier services.IEmailVerifier,
 	emailSender services.IEmailSender,
 	passwordResetRepo userpkg.IPasswordResetRepository,
+	verificationRepo userpkg.IVerificationRepository,
 ) *UserUsecase {
 	return &UserUsecase{
 		userRepo:          userRepo,
@@ -37,6 +39,7 @@ func NewUserUsecase(
 		emailVerifier:     emailVerifier,
 		emailSender:       emailSender,
 		passwordResetRepo: passwordResetRepo,
+		verificationRepo:  verificationRepo,
 	}
 }
 
@@ -106,6 +109,10 @@ func (uu *UserUsecase) LoginUser(ctx context.Context, login, password string) (u
 	user, err := uu.userRepo.GetUserByLogin(ctx, login)
 	if err != nil {
 		return userpkg.User{}, "", "", errors.New("invalid credentials")
+	}
+	// Prevent login if email not verified
+	if !user.IsVerified {
+		return userpkg.User{}, "", "", errors.New("email not verified")
 	}
 
 	if err := uu.passwordSvc.ComparePassword(user.Password, password); err != nil {
@@ -252,4 +259,54 @@ func (uu *UserUsecase) PromoteUser(ctx context.Context, userID string) error {
 
 func (uu *UserUsecase) DemoteUser(ctx context.Context, userID string) error {
 	return uu.userRepo.UpdateUserRoleByID(ctx, userID, "user")
+}
+
+func (u *UserUsecase) SendVerificationOTP(ctx context.Context, email string) error {
+	exists, _ := u.userRepo.ExistsByEmail(ctx, email)
+	if !exists {
+		return errors.New("email not registered")
+	}
+
+	otp := utils.GenerateOTP(6)
+	if err := u.emailSender.SendEmail(email, "Your verification code", "Your code: "+otp); err != nil {
+		return err
+	}
+
+	hashed, err := u.passwordSvc.HashPassword(otp)
+	if err != nil {
+		return err
+	}
+
+	v := userpkg.Verification{
+		Email:        email,
+		OTP:          hashed,
+		ExpiresAt:    time.Now().Add(15 * time.Minute),
+		AttemptCount: 0,
+	}
+	return u.verificationRepo.StoreVerification(ctx, v)
+}
+
+func (u *UserUsecase) VerifyUser(ctx context.Context, email, otp string) error {
+	v, err := u.verificationRepo.GetVerification(ctx, email)
+	if err != nil {
+		return errors.New("no verification found")
+	}
+	if time.Now().After(v.ExpiresAt) {
+		_ = u.verificationRepo.DeleteVerification(ctx, email)
+		return errors.New("verification code expired")
+	}
+	if v.AttemptCount >= 5 {
+		_ = u.verificationRepo.DeleteVerification(ctx, email)
+		return errors.New("too many invalid attempts")
+	}
+	if u.passwordSvc.ComparePassword(v.OTP, otp) != nil {
+		_ = u.verificationRepo.IncrementAttemptCount(ctx, email)
+		return errors.New("invalid code")
+	}
+	// flip user verified
+	if err := u.userRepo.UpdateIsVerifiedByEmail(ctx, email, true); err != nil {
+		return err
+	}
+	_ = u.verificationRepo.DeleteVerification(ctx, email)
+	return nil
 }

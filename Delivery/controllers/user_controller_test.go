@@ -29,6 +29,8 @@ func (s *ControllerTestSuite) SetupTest() {
 	ctrl := controllers.NewController(s.mockUC)
 	s.router = gin.Default()
 	s.router.POST("/register", ctrl.Register)
+	// Registration verification endpoint
+	s.router.POST("/verify-user", ctrl.VerifyUser)
 	s.router.POST("/login", ctrl.Login)
 	s.router.POST("/forgot-password", ctrl.ForgotPassword)
 	s.router.POST("/refresh", ctrl.RefreshToken)
@@ -146,11 +148,41 @@ func (s *ControllerTestSuite) TestRegister_DuplicateEmail() {
 	s.Equal(http.StatusBadRequest, w.Code)
 }
 
+// TestRegister_Success ensures successful registration triggers verification
+func (s *ControllerTestSuite) TestRegister_Success() {
+	input := userpkg.User{Username: "newuser", Email: "new@example.com", Password: "Pass@1234", Fullname: "New User"}
+	expected := userpkg.User{Username: "newuser", Email: "new@example.com", Fullname: "New User"}
+	s.mockUC.On("RegisterUser", mock.Anything, input).Return(expected, nil)
+	s.mockUC.On("SendVerificationOTP", mock.Anything, input.Email).Return(nil)
+
+	w := s.performRequest("POST", "/register", input)
+	s.Equal(http.StatusCreated, w.Code)
+}
+
+// TestRegister_VerificationFail returns 500 if OTP send fails
+func (s *ControllerTestSuite) TestRegister_VerificationFail() {
+	input := userpkg.User{Username: "newuser", Email: "new@example.com", Password: "Pass@1234", Fullname: "New User"}
+	expected := userpkg.User{Username: "newuser", Email: "new@example.com", Fullname: "New User"}
+	s.mockUC.On("RegisterUser", mock.Anything, input).Return(expected, nil)
+	s.mockUC.On("SendVerificationOTP", mock.Anything, input.Email).Return(errors.New("mail service down"))
+
+	w := s.performRequest("POST", "/register", input)
+	s.Equal(http.StatusInternalServerError, w.Code)
+}
+
 func (s *ControllerTestSuite) TestLogin_InvalidCredentials() {
 	s.mockUC.On("LoginUser", mock.Anything, "user1", "wrongpass").
 		Return(userpkg.User{}, "", "", errors.New("invalid credentials"))
 
 	w := s.performRequest("POST", "/login", map[string]string{"login": "user1", "password": "wrongpass"})
+	s.Equal(http.StatusUnauthorized, w.Code)
+}
+
+func (s *ControllerTestSuite) TestLogin_Unverified() {
+	// usecase.LoginUser returns error "email not verified"
+	s.mockUC.On("LoginUser", mock.Anything, "user1", "pass").Return(userpkg.User{}, "", "", errors.New("email not verified"))
+
+	w := s.performRequest("POST", "/login", map[string]string{"login": "user1", "password": "pass"})
 	s.Equal(http.StatusUnauthorized, w.Code)
 }
 
