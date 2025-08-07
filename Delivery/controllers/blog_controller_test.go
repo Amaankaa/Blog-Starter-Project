@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type BlogControllerSuite struct {
@@ -404,26 +403,25 @@ func (s *BlogControllerSuite) TestLikeBlog_ErrorFromUsecase() {
 
 func (s *BlogControllerSuite) TestAddComment_Success() {
 	assert := assert.New(s.T())
-	blogOID := primitive.NewObjectID()
+	blogID := "blog-123"
 	userID := "user-1"
 	commentReq := blogpkg.AddCommentRequest{Content: "Great post!"}
 	body, _ := json.Marshal(commentReq)
 	createdComment := &blogpkg.Comment{
-		ID:        primitive.NewObjectID(),
-		BlogID:    blogOID,
+		// Use zero value for primitive.ObjectID fields, since not checked in matcher
 		UserID:    userID,
 		Content:   commentReq.Content,
 		CreatedAt: time.Now(),
 	}
 	s.blogUsecase.On("AddComment", mock.Anything, mock.MatchedBy(func(c *blogpkg.Comment) bool {
-		return c.BlogID == blogOID && c.UserID == userID && c.Content == commentReq.Content
-	})).Return(createdComment, nil).Once()
+		return c.UserID == userID && c.Content == commentReq.Content
+	}), blogID).Return(createdComment, nil).Once()
 
 	s.router.POST("/blogs/:id/comment", func(c *gin.Context) {
 		c.Set("user_id", userID)
 		s.controller.AddComment(c)
 	})
-	req, _ := http.NewRequest("POST", "/blogs/"+blogOID.Hex()+"/comment", bytes.NewBuffer(body))
+	req, _ := http.NewRequest("POST", "/blogs/"+blogID+"/comment", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 	s.router.ServeHTTP(res, req)

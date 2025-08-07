@@ -455,7 +455,7 @@ func (s *BlogUsecaseSuite) TestAddComment_Success() {
 	s.blogRepo.On("AddComment", mock.Anything, mock.MatchedBy(func(c *blogpkg.Comment) bool {
 		return c.BlogID == blogOID && c.UserID == "user-1" && c.Content == "Nice post!"
 	})).Return(createdComment, nil).Once()
-	result, err := s.blogUC.AddComment(ctx, comment)
+	result, err := s.blogUC.AddComment(ctx, comment, blogOID.Hex())
 	assert.NoError(err)
 	assert.NotNil(result)
 	assert.Equal(createdComment.Content, result.Content)
@@ -470,11 +470,10 @@ func (s *BlogUsecaseSuite) TestAddComment_BlogNotFound() {
 	blogOID := primitive.NewObjectID()
 	s.blogRepo.On("GetBlogByID", blogOID.Hex()).Return(nil, nil).Once()
 	comment := &blogpkg.Comment{
-		BlogID:  blogOID,
 		UserID:  "user-1",
 		Content: "Nice post!",
 	}
-	result, err := s.blogUC.AddComment(ctx, comment)
+	result, err := s.blogUC.AddComment(ctx, comment, blogOID.Hex())
 	assert.Error(err)
 	assert.Nil(result)
 	assert.Contains(err.Error(), "blog not found")

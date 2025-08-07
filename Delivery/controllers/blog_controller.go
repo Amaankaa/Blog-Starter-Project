@@ -8,7 +8,6 @@ import (
 
 	blogpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/blog"
 	"github.com/gin-gonic/gin"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type BlogController struct {
@@ -245,12 +244,7 @@ func (bc *BlogController) AddComment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "details": err.Error()})
 		return
 	}
-
-	objID, err := primitive.ObjectIDFromHex(blogID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid blog ID"})
-		return
-	}
+	
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
@@ -261,12 +255,10 @@ func (bc *BlogController) AddComment(c *gin.Context) {
 	defer cancel()
 
 	comment := &blogpkg.Comment{
-		BlogID:  objID,
 		UserID:  userID.(string),
 		Content: req.Content,
-		CreatedAt: time.Now(),
 	}
-	createdComment, err := bc.blogUsecase.AddComment(ctx, comment)
+	createdComment, err := bc.blogUsecase.AddComment(ctx, comment, blogID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

@@ -19,15 +19,17 @@ import (
 )
 
 const testBlogCollection = "test_blogs"
+const TestCommentCollection = "test_comments"
 
 type blogRepositoryTestSuite struct {
 	suite.Suite
-	db         *mongo.Database
-	blogRepo   *repositories.BlogRepository
-	ctx        context.Context
-	cancel     context.CancelFunc
-	client     *mongo.Client
-	collection *mongo.Collection
+	db                *mongo.Database
+	blogRepo          *repositories.BlogRepository
+	ctx               context.Context
+	cancel            context.CancelFunc
+	client            *mongo.Client
+	blogCollection    *mongo.Collection
+	commentCollection *mongo.Collection
 }
 
 func TestBlogRepositoryTestSuite(t *testing.T) {
@@ -50,20 +52,22 @@ func (s *blogRepositoryTestSuite) SetupSuite() {
 
 	s.client = client
 	s.db = client.Database("test_blog_db")
-	s.collection = s.db.Collection(testBlogCollection)
-	s.blogRepo = repositories.NewBlogRepository(s.collection)
+	s.blogCollection = s.db.Collection(testBlogCollection)
+	s.commentCollection = s.db.Collection(TestCommentCollection)
+	s.blogRepo = repositories.NewBlogRepository(s.blogCollection, s.commentCollection)
 	s.ctx, s.cancel = context.WithTimeout(context.Background(), 10*time.Second)
 }
 
 func (s *blogRepositoryTestSuite) TearDownSuite() {
-	s.collection.Drop(s.ctx)
+	s.blogCollection.Drop(s.ctx)
+	s.commentCollection.Drop(s.ctx)
 	s.cancel()
 	s.client.Disconnect(s.ctx)
 }
 
 func (s *blogRepositoryTestSuite) SetupTest() {
 	// Clean collection before each test
-	_, err := s.collection.DeleteMany(s.ctx, bson.M{})
+	_, err := s.blogCollection.DeleteMany(s.ctx, bson.M{})
 	s.Require().NoError(err)
 }
 
@@ -71,7 +75,6 @@ func (s *blogRepositoryTestSuite) TestCreateBlog() {
 	assert := assert.New(s.T())
 
 	blog := &blogpkg.Blog{
-		ID:        "test-id-123",
 		Title:     "Test Blog",
 		Content:   "This is a test blog post.",
 		AuthorID:  "author-1",
@@ -83,14 +86,14 @@ func (s *blogRepositoryTestSuite) TestCreateBlog() {
 	created, err := s.blogRepo.CreateBlog(blog)
 	assert.NoError(err)
 	assert.NotNil(created)
-	assert.Equal("test-id-123", created.ID)
+	assert.NotEmpty(created.ID)
 	assert.Equal(blog.Title, created.Title)
 	assert.Equal(blog.Content, created.Content)
 	assert.Equal(blog.AuthorID, created.AuthorID)
 
 	// Check in DB
 	var found blogpkg.Blog
-	err = s.collection.FindOne(s.ctx, bson.M{"id": created.ID}).Decode(&found)
+	err = s.blogCollection.FindOne(s.ctx, bson.M{"id": created.ID}).Decode(&found)
 	assert.NoError(err)
 	assert.Equal(created.Title, found.Title)
 }
@@ -168,7 +171,7 @@ func (s *blogRepositoryTestSuite) TestGetAllBlogs() {
 	assert.ElementsMatch([]string{"Blog 1", "Blog 2", "Blog 3"}, titles)
 
 	// Test: Empty collection
-	_, err = s.collection.DeleteMany(s.ctx, bson.M{})
+	_, err = s.blogCollection.DeleteMany(s.ctx, bson.M{})
 	assert.NoError(err)
 	respEmpty, err := s.blogRepo.GetAllBlogs(s.ctx, blogpkg.PaginationRequest{Page: 1, Limit: 2})
 	assert.NoError(err)
@@ -239,7 +242,7 @@ func (s *blogRepositoryTestSuite) TestUpdateBlog_Success() {
 
 	// Check in DB
 	var found blogpkg.Blog
-	err = s.collection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	err = s.blogCollection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
 	assert.NoError(err)
 	assert.Equal(updated.Title, found.Title)
 	assert.Equal(updated.Content, found.Content)
@@ -281,7 +284,7 @@ func (s *blogRepositoryTestSuite) TestDeleteBlog_Success() {
 
 	// Should not be found in DB
 	var found blogpkg.Blog
-	err = s.collection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	err = s.blogCollection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
 	assert.Error(err)
 }
 
@@ -416,7 +419,7 @@ func (s *blogRepositoryTestSuite) TestAddLike_Success() {
 
 	// Check in DB
 	var found blogpkg.Blog
-	err = s.collection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	err = s.blogCollection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
 	assert.NoError(err)
 	assert.Contains(found.Likes, "user-1")
 }
@@ -448,7 +451,7 @@ func (s *blogRepositoryTestSuite) TestRemoveLike_Success() {
 
 	// Check in DB
 	var found blogpkg.Blog
-	err = s.collection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	err = s.blogCollection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
 	assert.NoError(err)
 	assert.NotContains(found.Likes, "user-1")
 	assert.Contains(found.Likes, "user-2")
@@ -488,14 +491,14 @@ func (s *blogRepositoryTestSuite) TestAddComment_Success() {
 	assert.NoError(err)
 	assert.NotNil(result)
 	assert.Equal(comment.Content, result.Content)
-	// Check comment exists in comments collection
+	// Check comment exists in comments collection (query with ObjectID)
 	var found blogpkg.Comment
-	err = s.collection.FindOne(s.ctx, bson.M{"id": comment.ID}).Decode(&found)
+	err = s.commentCollection.FindOne(s.ctx, bson.M{"id": comment.ID}).Decode(&found)
 	assert.NoError(err)
 	assert.Equal(comment.Content, found.Content)
 	// Check blog updated with comment ID
 	var foundBlog blogpkg.Blog
-	err = s.collection.FindOne(s.ctx, bson.M{"id": blogOID.Hex()}).Decode(&foundBlog)
+	err = s.blogCollection.FindOne(s.ctx, bson.M{"id": blogOID.Hex()}).Decode(&foundBlog)
 	assert.NoError(err)
 	// Comments field may not exist if not set up, so just check no error
 }
