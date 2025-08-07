@@ -107,3 +107,11 @@ func (s *verificationRepoTestSuite) TestIncrementAttemptCount() {
 	s.Require().NoError(err)
 	s.Equal(1, rcv.AttemptCount)
 }
+
+// TestIncrementAttemptCount_RecordNotFound ensures an error is returned when no verification exists
+func (s *verificationRepoTestSuite) TestIncrementAttemptCount_RecordNotFound() {
+	// attempt to increment on a non-existent email
+	err := s.repo.IncrementAttemptCount(s.ctx, "missing@example.com")
+	s.Error(err)
+	s.Contains(err.Error(), "verification record not found")
+}
