@@ -42,6 +42,7 @@ func main() {
 	tokenCollection := db.Collection("tokens")
 	blogCollection := db.Collection("blogs")
 	passwordResetCollection := db.Collection("password_resets")
+	commentCollection := db.Collection("comments")
 
 	// Initialize infrastructure services
 	passwordService := infrastructure.NewPasswordService()
@@ -56,7 +57,7 @@ func main() {
 	//Repositories: only take collection (not services)
 	userRepo := repositories.NewUserRepository(userCollection)
 	tokenRepo := repositories.NewTokenRepository(tokenCollection)
-	blogRepo := repositories.NewBlogRepository(blogCollection)
+	blogRepo := repositories.NewBlogRepository(blogCollection, commentCollection)
 	passwordResetRepo := repositories.NewPasswordResetRepo(passwordResetCollection, userCollection)
 
 	//Usecase: handles business logic, gets all dependencies

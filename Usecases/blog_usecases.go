@@ -7,7 +7,6 @@ import (
 	"time"
 
 	blogpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/blog"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type BlogUsecase struct {
@@ -44,7 +43,6 @@ func (bu *BlogUsecase) CreateBlog(ctx context.Context, blog *blogpkg.Blog) (*blo
 	}
 
 	blog.AuthorID = authorIDStr
-	blog.ID = primitive.NewObjectID().Hex()
 	blog.CreatedAt = time.Now()
 	blog.UpdatedAt = time.Now()
 
@@ -233,3 +231,23 @@ func (bu *BlogUsecase) ToggleLike(ctx context.Context, blogID string, userID str
 
 	return bu.blogRepo.AddLike(ctx, blogID, userID)
 }
+
+func (bu *BlogUsecase) AddComment(ctx context.Context, comment *blogpkg.Comment, blogID string) (*blogpkg.Comment, error) {
+	exists, err := bu.blogRepo.GetBlogByID(blogID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if blog exists: %w", err)
+	}
+	if exists == nil {
+		return nil, errors.New("blog not found")
+	}
+
+	newComment := &blogpkg.Comment{
+		BlogID:    comment.BlogID,
+		UserID:    comment.UserID,
+		Content:   comment.Content,
+		CreatedAt: time.Now(),
+	}
+
+	return bu.blogRepo.AddComment(ctx, newComment)
+	}
+	

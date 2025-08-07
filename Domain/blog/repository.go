@@ -13,4 +13,5 @@ type IBlogRepository interface {
 	FilterByTags(ctx context.Context, tags []string, pagination PaginationRequest) (PaginationResponse, error)
 	AddLike(ctx context.Context, blogID string, userID string) error
 	RemoveLike(ctx context.Context, blogID string, userID string) error
+	AddComment(ctx context.Context, comment *Comment) (*Comment, error)
 }

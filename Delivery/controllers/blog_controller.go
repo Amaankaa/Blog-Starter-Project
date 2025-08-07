@@ -232,3 +232,36 @@ func (bc *BlogController) LikeBlog(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Toggled like successfully"})
 }
+
+func (bc *BlogController) AddComment(c *gin.Context) {
+	blogID := c.Param("id")
+	if blogID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Blog ID is required"})
+		return
+	}
+	var req blogpkg.AddCommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "details": err.Error()})
+		return
+	}
+	
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	comment := &blogpkg.Comment{
+		UserID:  userID.(string),
+		Content: req.Content,
+	}
+	createdComment, err := bc.blogUsecase.AddComment(ctx, comment, blogID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Comment added successfully", "comment": createdComment})
+}

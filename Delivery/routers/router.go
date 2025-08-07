@@ -30,14 +30,18 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	admin.PUT("/user/:id/promote", controller.PromoteUser)
 	admin.PUT("/user/:id/demote", controller.DemoteUser)
 
-	// Blog routes
-	protected.POST("/blog/create", blogController.CreateBlog)
-	protected.GET("/blogs", blogController.GetAllBlogs)
-	protected.GET("/blog/:id", blogController.GetBlogByID)
-	protected.PUT("/blog/:id", blogController.UpdateBlog)
-	protected.DELETE("/blog/:id", blogController.DeleteBlog)
-	protected.GET("/blog/search", blogController.SearchBlogs)
-	protected.GET("/blog/filter", blogController.FilterByTags)
+	// Blog routes (Public)
+	r.GET("/blogs", blogController.GetAllBlogs)
+	r.GET("/blogs/:id", blogController.GetBlogByID)
+	r.GET("/blogs/search", blogController.SearchBlogs)
+	r.GET("/blogs/filter", blogController.FilterByTags)
+	
+	// Blog routes (Protected)
+	protected.POST("/blogs/create", blogController.CreateBlog)
+	protected.PUT("/blogs/:id", blogController.UpdateBlog)
+	protected.DELETE("/blogs/:id", blogController.DeleteBlog)
+	protected.PATCH("/blogs/:id/like", blogController.LikeBlog)
+	protected.POST("/blogs/:id/comment", blogController.AddComment)
 
 	return r
 }

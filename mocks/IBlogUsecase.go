@@ -15,6 +15,36 @@ type IBlogUsecase struct {
 	mock.Mock
 }
 
+// AddComment provides a mock function with given fields: ctx, comment, blogID
+func (_m *IBlogUsecase) AddComment(ctx context.Context, comment *blogpkg.Comment, blogID string) (*blogpkg.Comment, error) {
+	ret := _m.Called(ctx, comment, blogID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddComment")
+	}
+
+	var r0 *blogpkg.Comment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *blogpkg.Comment, string) (*blogpkg.Comment, error)); ok {
+		return rf(ctx, comment, blogID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *blogpkg.Comment, string) *blogpkg.Comment); ok {
+		r0 = rf(ctx, comment, blogID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*blogpkg.Comment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *blogpkg.Comment, string) error); ok {
+		r1 = rf(ctx, comment, blogID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateBlog provides a mock function with given fields: ctx, blog
 func (_m *IBlogUsecase) CreateBlog(ctx context.Context, blog *blogpkg.Blog) (*blogpkg.Blog, error) {
 	ret := _m.Called(ctx, blog)

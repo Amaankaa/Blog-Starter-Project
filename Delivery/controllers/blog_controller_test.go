@@ -401,6 +401,37 @@ func (s *BlogControllerSuite) TestLikeBlog_ErrorFromUsecase() {
 	assert.Contains(res.Body.String(), "toggle error")
 }
 
+func (s *BlogControllerSuite) TestAddComment_Success() {
+	assert := assert.New(s.T())
+	blogID := "blog-123"
+	userID := "user-1"
+	commentReq := blogpkg.AddCommentRequest{Content: "Great post!"}
+	body, _ := json.Marshal(commentReq)
+	createdComment := &blogpkg.Comment{
+		// Use zero value for primitive.ObjectID fields, since not checked in matcher
+		UserID:    userID,
+		Content:   commentReq.Content,
+		CreatedAt: time.Now(),
+	}
+	s.blogUsecase.On("AddComment", mock.Anything, mock.MatchedBy(func(c *blogpkg.Comment) bool {
+		return c.UserID == userID && c.Content == commentReq.Content
+	}), blogID).Return(createdComment, nil).Once()
+
+	s.router.POST("/blogs/:id/comment", func(c *gin.Context) {
+		c.Set("user_id", userID)
+		s.controller.AddComment(c)
+	})
+	req, _ := http.NewRequest("POST", "/blogs/"+blogID+"/comment", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	s.router.ServeHTTP(res, req)
+
+	assert.Equal(http.StatusCreated, res.Code)
+	assert.Contains(res.Body.String(), "Comment added successfully")
+	assert.Contains(res.Body.String(), commentReq.Content)
+	s.blogUsecase.AssertExpectations(s.T())
+}
+
 func TestBlogControllerSuite(t *testing.T) {
 	suite.Run(t, new(BlogControllerSuite))
 }

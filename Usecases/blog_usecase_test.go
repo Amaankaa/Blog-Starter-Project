@@ -9,6 +9,7 @@ import (
 	blogpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/blog"
 	usecases "github.com/Amaankaa/Blog-Starter-Project/Usecases"
 	"github.com/Amaankaa/Blog-Starter-Project/mocks"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -421,5 +422,60 @@ func (s *BlogUsecaseSuite) TestToggleLike_RepoError() {
 	err := s.blogUC.ToggleLike(ctx, blogID, userID)
 	assert.Error(err)
 	assert.Contains(err.Error(), "repo error")
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestAddComment_Success() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	blogOID := primitive.NewObjectID()
+	blog := &blogpkg.Blog{
+		ID:        blogOID.Hex(),
+		Title:     "Blog Title",
+		Content:   "Blog Content",
+		AuthorID:  "author-1",
+		Tags:      []string{"go"},
+		Likes:     []string{},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	s.blogRepo.On("GetBlogByID", blogOID.Hex()).Return(blog, nil).Once()
+	comment := &blogpkg.Comment{
+		BlogID:  blogOID,
+		UserID:  "user-1",
+		Content: "Nice post!",
+	}
+	createdComment := &blogpkg.Comment{
+		ID:        primitive.NewObjectID(),
+		BlogID:    blogOID,
+		UserID:    "user-1",
+		Content:   "Nice post!",
+		CreatedAt: time.Now(),
+	}
+	s.blogRepo.On("AddComment", mock.Anything, mock.MatchedBy(func(c *blogpkg.Comment) bool {
+		return c.BlogID == blogOID && c.UserID == "user-1" && c.Content == "Nice post!"
+	})).Return(createdComment, nil).Once()
+	result, err := s.blogUC.AddComment(ctx, comment, blogOID.Hex())
+	assert.NoError(err)
+	assert.NotNil(result)
+	assert.Equal(createdComment.Content, result.Content)
+	assert.Equal(createdComment.UserID, result.UserID)
+	assert.Equal(createdComment.BlogID, result.BlogID)
+	s.blogRepo.AssertExpectations(s.T())
+}
+
+func (s *BlogUsecaseSuite) TestAddComment_BlogNotFound() {
+	assert := assert.New(s.T())
+	ctx := context.Background()
+	blogOID := primitive.NewObjectID()
+	s.blogRepo.On("GetBlogByID", blogOID.Hex()).Return(nil, nil).Once()
+	comment := &blogpkg.Comment{
+		UserID:  "user-1",
+		Content: "Nice post!",
+	}
+	result, err := s.blogUC.AddComment(ctx, comment, blogOID.Hex())
+	assert.Error(err)
+	assert.Nil(result)
+	assert.Contains(err.Error(), "blog not found")
 	s.blogRepo.AssertExpectations(s.T())
 }
