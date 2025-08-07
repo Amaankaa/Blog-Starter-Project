@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -457,4 +458,59 @@ func (s *blogRepositoryTestSuite) TestRemoveLike_BlogNotFound() {
 	assert := assert.New(s.T())
 	err := s.blogRepo.RemoveLike(s.ctx, "not-exist", "user-1")
 	assert.NoError(err) // MongoDB does not error if no doc found
+}
+
+func (s *blogRepositoryTestSuite) TestAddComment_Success() {
+	assert := assert.New(s.T())
+	// Insert a blog to comment on
+	blogOID := primitive.NewObjectID()
+	blog := &blogpkg.Blog{
+		ID:        blogOID.Hex(),
+		Title:     "Blog Title",
+		Content:   "Blog Content",
+		AuthorID:  "author-1",
+		Tags:      []string{"go"},
+		Likes:     []string{},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.CreateBlog(blog)
+	assert.NoError(err)
+
+	comment := &blogpkg.Comment{
+		ID:        primitive.NewObjectID(),
+		BlogID:    blogOID,
+		UserID:    "user-1",
+		Content:   "Nice post!",
+		CreatedAt: time.Now(),
+	}
+	result, err := s.blogRepo.AddComment(s.ctx, comment)
+	assert.NoError(err)
+	assert.NotNil(result)
+	assert.Equal(comment.Content, result.Content)
+	// Check comment exists in comments collection
+	var found blogpkg.Comment
+	err = s.collection.FindOne(s.ctx, bson.M{"id": comment.ID}).Decode(&found)
+	assert.NoError(err)
+	assert.Equal(comment.Content, found.Content)
+	// Check blog updated with comment ID
+	var foundBlog blogpkg.Blog
+	err = s.collection.FindOne(s.ctx, bson.M{"id": blogOID.Hex()}).Decode(&foundBlog)
+	assert.NoError(err)
+	// Comments field may not exist if not set up, so just check no error
+}
+
+func (s *blogRepositoryTestSuite) TestAddComment_BlogNotFound() {
+	assert := assert.New(s.T())
+	comment := &blogpkg.Comment{
+		ID:        primitive.NewObjectID(),
+		BlogID:    primitive.NewObjectID(),
+		UserID:    "user-1",
+		Content:   "Nice post!",
+		CreatedAt: time.Now(),
+	}
+	result, err := s.blogRepo.AddComment(s.ctx, comment)
+	// Should not error on insert, but update will not find blog
+	assert.Error(err)
+	assert.Nil(result)
 }

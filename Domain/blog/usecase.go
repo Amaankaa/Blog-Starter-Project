@@ -14,4 +14,5 @@ type IBlogUsecase interface {
 	SearchBlogs(ctx context.Context, query string, pagination PaginationRequest) (PaginationResponse, error)
 	FilterByTags(ctx context.Context, tags []string, pagination PaginationRequest) (PaginationResponse, error)
 	ToggleLike(ctx context.Context, blogID string, userID string) error
+	AddComment(ctx context.Context, comment *Comment) (*Comment, error)
 }

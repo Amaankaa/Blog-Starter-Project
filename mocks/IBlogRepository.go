@@ -15,6 +15,36 @@ type IBlogRepository struct {
 	mock.Mock
 }
 
+// AddComment provides a mock function with given fields: ctx, comment
+func (_m *IBlogRepository) AddComment(ctx context.Context, comment *blogpkg.Comment) (*blogpkg.Comment, error) {
+	ret := _m.Called(ctx, comment)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddComment")
+	}
+
+	var r0 *blogpkg.Comment
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *blogpkg.Comment) (*blogpkg.Comment, error)); ok {
+		return rf(ctx, comment)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *blogpkg.Comment) *blogpkg.Comment); ok {
+		r0 = rf(ctx, comment)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*blogpkg.Comment)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *blogpkg.Comment) error); ok {
+		r1 = rf(ctx, comment)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // AddLike provides a mock function with given fields: ctx, blogID, userID
 func (_m *IBlogRepository) AddLike(ctx context.Context, blogID string, userID string) error {
 	ret := _m.Called(ctx, blogID, userID)

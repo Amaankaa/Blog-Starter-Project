@@ -8,6 +8,7 @@ import (
 
 	blogpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/blog"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type BlogController struct {
@@ -231,4 +232,44 @@ func (bc *BlogController) LikeBlog(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Toggled like successfully"})
+}
+
+func (bc *BlogController) AddComment(c *gin.Context) {
+	blogID := c.Param("id")
+	if blogID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Blog ID is required"})
+		return
+	}
+	var req blogpkg.AddCommentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body", "details": err.Error()})
+		return
+	}
+
+	objID, err := primitive.ObjectIDFromHex(blogID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid blog ID"})
+		return
+	}
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	comment := &blogpkg.Comment{
+		BlogID:  objID,
+		UserID:  userID.(string),
+		Content: req.Content,
+		CreatedAt: time.Now(),
+	}
+	createdComment, err := bc.blogUsecase.AddComment(ctx, comment)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"message": "Comment added successfully", "comment": createdComment})
 }

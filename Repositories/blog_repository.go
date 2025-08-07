@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"math"
 
 	blogpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/blog"
@@ -12,12 +13,14 @@ import (
 
 type BlogRepository struct {
 	collection *mongo.Collection
+	db         *mongo.Database
 	ctx        context.Context
 }
 
 func NewBlogRepository(collection *mongo.Collection) *BlogRepository {
 	return &BlogRepository{
 		collection: collection,
+		db:         collection.Database(),
 		ctx:        context.Background(),
 	}
 }
@@ -203,4 +206,22 @@ func (br *BlogRepository) RemoveLike(ctx context.Context, blogID string, userID 
 		return err
 	}
 	return nil
+}
+
+func (br *BlogRepository) AddComment(ctx context.Context, comment *blogpkg.Comment) (*blogpkg.Comment, error) {
+	_, err := br.collection.InsertOne(ctx, comment)
+	if err != nil {
+		return nil, err
+	}
+	blogCollection := br.collection
+	// Update the blog to include the new comment ID
+	update := bson.M{"$push": bson.M{"comments": comment.ID}}
+	result, err := blogCollection.UpdateOne(ctx, bson.M{"id": comment.BlogID.Hex()}, update)
+	if err != nil {
+		return nil, err
+	}
+	if result.MatchedCount == 0 {
+		return nil, errors.New("blog not found")
+	}
+	return comment, nil
 }

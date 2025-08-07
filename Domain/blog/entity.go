@@ -1,6 +1,10 @@
 package blogpkg
 
-import "time"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type Blog struct {
 	ID        string    `json:"id" bson:"id"`
@@ -26,4 +30,16 @@ type PaginationResponse struct {
 	Page       int    `json:"page"`
 	Limit      int    `json:"limit"`
 	TotalPages int    `json:"total_pages"`
+}
+
+type Comment struct {
+	ID        primitive.ObjectID `json:"id" bson:"id"`
+	BlogID    primitive.ObjectID `json:"blog_id" bson:"blog_id"`
+	UserID    string             `json:"user_id" bson:"user_id"`
+	Content   string             `json:"content" bson:"content"`
+	CreatedAt time.Time          `json:"created_at" bson:"created_at"`
+}
+
+type AddCommentRequest struct {
+	Content string `json:"content" binding:"required,min=1,max=1000"`
 }

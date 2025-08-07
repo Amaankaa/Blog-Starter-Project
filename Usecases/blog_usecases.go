@@ -233,3 +233,24 @@ func (bu *BlogUsecase) ToggleLike(ctx context.Context, blogID string, userID str
 
 	return bu.blogRepo.AddLike(ctx, blogID, userID)
 }
+
+func (bu *BlogUsecase) AddComment(ctx context.Context, comment *blogpkg.Comment) (*blogpkg.Comment, error) {
+	exists, err := bu.blogRepo.GetBlogByID(comment.BlogID.Hex())
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if blog exists: %w", err)
+	}
+	if exists == nil {
+		return nil, errors.New("blog not found")
+	}
+
+	comment = &blogpkg.Comment{
+		ID:        primitive.NewObjectID(),
+		BlogID:    comment.BlogID,
+		UserID:    comment.UserID,
+		Content:   comment.Content,
+		CreatedAt: time.Now(),
+	}
+
+	return bu.blogRepo.AddComment(ctx, comment)
+	}
+	
