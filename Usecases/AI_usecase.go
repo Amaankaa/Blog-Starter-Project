@@ -5,7 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -78,7 +79,7 @@ func (uc *aiUseCase) GenerateContentSuggestions(ctx context.Context, req *aidoma
 		resp, err := uc.httpClient.Do(httpReq)
 		if err != nil {
 			if i < maxRetries-1 {
-				fmt.Printf("AI API request failed, retrying in %d seconds... (attempt %d/%d)\n", 1<<i, i+1, maxRetries)
+				log.Printf("AI API request failed, retrying in %d seconds... (attempt %d/%d)\n", 1<<i, i+1, maxRetries)
 				time.Sleep(time.Duration(1<<i) * time.Second)
 				continue
 			}
@@ -86,7 +87,7 @@ func (uc *aiUseCase) GenerateContentSuggestions(ctx context.Context, req *aidoma
 		}
 		defer resp.Body.Close()
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read AI API response body: %w", err)
 		}
