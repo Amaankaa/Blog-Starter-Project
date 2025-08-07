@@ -8,8 +8,6 @@ import (
 	"github.com/Amaankaa/Blog-Starter-Project/Domain/services"
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
 	utils "github.com/Amaankaa/Blog-Starter-Project/Domain/utils"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type UserUsecase struct {
@@ -94,8 +92,6 @@ func (uu *UserUsecase) RegisterUser(ctx context.Context, user userpkg.User) (use
 		return userpkg.User{}, err
 	}
 	user.Password = hashed
-	user.ID = primitive.NewObjectID()
-	user.IsVerified = false
 
 	_, err = uu.userRepo.CreateUser(ctx, user)
 	if err != nil {
