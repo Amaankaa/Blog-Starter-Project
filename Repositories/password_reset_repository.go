@@ -45,10 +45,3 @@ func (r *PasswordResetRepo) IncrementAttemptCount(ctx context.Context, email str
     )
     return err
 }
-
-func (r *UserRepository) UpdatePasswordByEmail(ctx context.Context, email, hashedPassword string) error {
-    filter := bson.M{"email": email}
-    update := bson.M{"$set": bson.M{"password": hashedPassword}}
-    _, err := r.collection.UpdateOne(ctx, filter, update)
-    return err
-}

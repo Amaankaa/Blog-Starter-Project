@@ -114,3 +114,10 @@ func (ur *UserRepository) UpdateUserRoleByID(ctx context.Context, userID, role s
 	}
 	return nil
 }
+
+func (ur *UserRepository) UpdatePasswordByEmail(ctx context.Context, email, hashedPassword string) error {
+	filter := bson.M{"email": email}
+	update := bson.M{"$set": bson.M{"password": hashedPassword}}
+	_, err := ur.collection.UpdateOne(ctx, filter, update)
+	return err
+}
