@@ -233,3 +233,24 @@ func (br *BlogRepository) AddComment(ctx context.Context, comment *blogpkg.Comme
 	}
 	return comment, nil
 }
+
+func (br *BlogRepository) UpdateViewCount(ctx context.Context, blogID string) error {
+
+	filter := bson.M{"id": blogID}
+	update := bson.M{"$inc": bson.M{"views": 1}}
+	_, err := br.blogCollection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (br *BlogRepository) FindBlogByID(id string) (*blogpkg.Blog, error) {
+	filter := bson.M{"id": id}
+	var blog blogpkg.Blog
+	err := br.blogCollection.FindOne(br.ctx, filter).Decode(&blog)
+	if err != nil {
+		return nil, err
+	}
+	return &blog, nil
+}

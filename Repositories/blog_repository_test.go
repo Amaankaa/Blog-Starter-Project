@@ -517,3 +517,127 @@ func (s *blogRepositoryTestSuite) TestAddComment_BlogNotFound() {
 	assert.Error(err)
 	assert.Nil(result)
 }
+
+func (s *blogRepositoryTestSuite) TestUpdateViewCount() {
+	assert := assert.New(s.T())
+	// Insert a blog with initial views
+	blog := &blogpkg.Blog{
+		ID:        "id-views",
+		Title:     "View Count Blog",
+		Content:   "Content",
+		AuthorID:  "author-views",
+		Tags:      []string{"go"},
+		Views:     0,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.CreateBlog(blog)
+	assert.NoError(err)
+
+	// Call UpdateViewCount multiple times
+	for i := 1; i <= 3; i++ {
+		err := s.blogRepo.UpdateViewCount(s.ctx, blog.ID)
+		assert.NoError(err)
+		// Check in DB
+		var found blogpkg.Blog
+		err = s.blogCollection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+		assert.NoError(err)
+		assert.Equal(i, found.Views)
+	}
+
+	// Test with non-existent blog (should not error, but not increment anything)
+	err = s.blogRepo.UpdateViewCount(s.ctx, "not-exist")
+	assert.NoError(err)
+}
+
+func (s *blogRepositoryTestSuite) TestFindBlogByID() {
+	assert := assert.New(s.T())
+	// Insert a blog
+	blog := &blogpkg.Blog{
+		ID:        "find-id-1",
+		Title:     "Find Me",
+		Content:   "Find this blog",
+		AuthorID:  "author-find",
+		Tags:      []string{"go"},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.CreateBlog(blog)
+	assert.NoError(err)
+
+	// Should find the blog
+	found, err := s.blogRepo.FindBlogByID(blog.ID)
+	assert.NoError(err)
+	assert.NotNil(found)
+	assert.Equal(blog.ID, found.ID)
+	assert.Equal(blog.Title, found.Title)
+
+	// Should return nil, error for non-existent blog
+	notFound, err := s.blogRepo.FindBlogByID("not-exist-id")
+	assert.Error(err)
+	assert.Nil(notFound)
+}
+
+func (s *blogRepositoryTestSuite) TestUpdateViewCount_Explicit() {
+	assert := assert.New(s.T())
+	// Insert a blog
+	blog := &blogpkg.Blog{
+		ID:        "view-id-1",
+		Title:     "View Blog",
+		Content:   "View content",
+		AuthorID:  "author-views",
+		Tags:      []string{"go"},
+		Views:     0,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.CreateBlog(blog)
+	assert.NoError(err)
+
+	// Increment view count
+	err = s.blogRepo.UpdateViewCount(s.ctx, blog.ID)
+	assert.NoError(err)
+	var found blogpkg.Blog
+	err = s.blogCollection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	assert.NoError(err)
+	assert.Equal(1, found.Views)
+
+	// Increment again
+	err = s.blogRepo.UpdateViewCount(s.ctx, blog.ID)
+	assert.NoError(err)
+	err = s.blogCollection.FindOne(s.ctx, bson.M{"id": blog.ID}).Decode(&found)
+	assert.NoError(err)
+	assert.Equal(2, found.Views)
+
+	// Non-existent blog
+	err = s.blogRepo.UpdateViewCount(s.ctx, "does-not-exist")
+	assert.NoError(err)
+}
+
+func (s *blogRepositoryTestSuite) TestFindBlogByID_Explicit() {
+	assert := assert.New(s.T())
+	// Insert a blog
+	blog := &blogpkg.Blog{
+		ID:        "find-id-2",
+		Title:     "Find Blog",
+		Content:   "Find this blog",
+		AuthorID:  "author-find",
+		Tags:      []string{"go"},
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err := s.blogRepo.CreateBlog(blog)
+	assert.NoError(err)
+
+	// Should find the blog
+	found, err := s.blogRepo.FindBlogByID(blog.ID)
+	assert.NoError(err)
+	assert.NotNil(found)
+	assert.Equal(blog.ID, found.ID)
+	assert.Equal(blog.Title, found.Title)
+
+	// Should return nil, error for non-existent blog
+	notFound, err := s.blogRepo.FindBlogByID("not-exist-id-2")
+	assert.Error(err)
+	assert.Nil(notFound)
+}

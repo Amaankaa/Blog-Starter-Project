@@ -15,6 +15,7 @@ type Blog struct {
 	Likes     []string  `json:"likes" bson:"likes"`
 	CreatedAt time.Time `json:"created_at" bson:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" bson:"updated_at"`
+	Views     int       `json:"views" bson:"views"`
 }
 
 // PaginationRequest represents pagination parameters
