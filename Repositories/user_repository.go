@@ -136,5 +136,10 @@ func (ur *UserRepository) UpdateProfile(ctx context.Context, userID string, upda
 }
 
 func (ur *UserRepository) GetUserProfile(ctx context.Context, userID string) (userpkg.User, error) {
-	return ur.FindByID(ctx, userID)
+    user, err := ur.FindByID(ctx, userID)
+    if err != nil {
+        return userpkg.User{}, err
+    }
+    user.Password = "" // Don't return password
+    return user, nil
 }

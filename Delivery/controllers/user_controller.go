@@ -229,3 +229,18 @@ func (ctrl *Controller) VerifyUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "User verified"})
 }
+func (ctrl *Controller) GetProfile(c *gin.Context) {
+    userID := c.GetString("user_id")
+    if userID == "" {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+        return
+    }
+    ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+    defer cancel()
+    user, err := ctrl.userUsecase.GetUserProfile(ctx, userID)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+        return
+    }
+    c.JSON(http.StatusOK, user)
+}
