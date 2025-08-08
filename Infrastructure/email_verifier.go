@@ -43,9 +43,6 @@ func (e *EmailListVerifyVerifier) IsRealEmail(email string) (bool, error) {
 
 	requestURL := fmt.Sprintf("%s?%s", baseURL, params.Encode())
 
-	// Debug: Print the request URL (remove API key for security)
-	debugURL := fmt.Sprintf("%s?secret=***&email=%s", baseURL, email)
-	fmt.Printf("Making request to: %s\n", debugURL)
 
 	resp, err := http.Get(requestURL)
 	if err != nil {
@@ -70,14 +67,6 @@ func (e *EmailListVerifyVerifier) IsRealEmail(email string) (bool, error) {
 		}
 	}
 
-	// Log the raw response for debugging
-	fmt.Printf("EmailListVerify raw response: %s\n", string(body))
-
-	// Check if response looks like JSON
-	if len(body) == 0 {
-		return false, fmt.Errorf("EmailListVerify returned empty response")
-	}
-
 	// Check if response starts with '{' (JSON) or is plain text
 	if body[0] != '{' {
 		responseText := string(body)
@@ -96,11 +85,6 @@ func (e *EmailListVerifyVerifier) IsRealEmail(email string) (bool, error) {
 		return false, fmt.Errorf("failed to decode EmailListVerify JSON response: %w. Raw response: %s", err, string(body))
 	}
 
-	// Consider email valid if:
-	// - Status is "ok"
-	// - Result is "deliverable" or "risky" (risky emails might still be valid)
-	// - Has MX record
-	// - Not disposable (optional - you might want to allow disposable emails for testing)
 	isValid := result.Status == "ok" &&
 		(result.Result == "deliverable" || result.Result == "risky") &&
 		result.MXRecord &&

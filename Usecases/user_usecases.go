@@ -55,11 +55,18 @@ func (uu *UserUsecase) RegisterUser(ctx context.Context, user userpkg.User) (use
 	}
 
 	// Username and email uniqueness
-	exists, _ := uu.userRepo.ExistsByUsername(ctx, user.Username)
+	exists, err := uu.userRepo.ExistsByUsername(ctx, user.Username)
+	if err != nil {
+		return userpkg.User{}, errors.New("failed to check username existence: " + err.Error())
+	}
 	if exists {
 		return userpkg.User{}, errors.New("username already taken")
 	}
-	exists, _ = uu.userRepo.ExistsByEmail(ctx, user.Email)
+	
+	exists, err = uu.userRepo.ExistsByEmail(ctx, user.Email)
+	if err != nil {
+		return userpkg.User{}, errors.New("failed to check email existence: " + err.Error())
+	}
 	if exists {
 		return userpkg.User{}, errors.New("email already taken")
 	}
