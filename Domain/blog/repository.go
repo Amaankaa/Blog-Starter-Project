@@ -14,4 +14,6 @@ type IBlogRepository interface {
 	AddLike(ctx context.Context, blogID string, userID string) error
 	RemoveLike(ctx context.Context, blogID string, userID string) error
 	AddComment(ctx context.Context, comment *Comment) (*Comment, error)
+	UpdateViewCount(ctx context.Context, blogID string) error
+	FindBlogByID(id string) (*Blog, error)
 }

@@ -62,12 +62,34 @@ func (bu *BlogUsecase) GetBlogByID(ctx context.Context, id string) (*blogpkg.Blo
 	if err != nil {
 		return nil, err
 	}
+	if blog == nil {
+		return nil, errors.New("blog not found")
+	}
+	userID := ctx.Value("user_id")
+	if userID == nil {
+		return blog, nil
+	}
+
+	// Increment view count only if user ID is present
+	if _, ok := userID.(string); !ok {
+		return blog, nil
+	}
+	if userID == blog.AuthorID {
+		return blog, nil
+	}
+
+	err = bu.blogRepo.UpdateViewCount(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	blog.Views++
 	return blog, nil
 }
 
 // GetAllBlogs returns paginated blogs
 func (bu *BlogUsecase) GetAllBlogs(ctx context.Context, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
-   // Set default values if not provided
+	// Set default values if not provided
 	pagination = normalizePagination(pagination)
 
 	result, err := bu.blogRepo.GetAllBlogs(ctx, pagination)
@@ -107,7 +129,7 @@ func (bu *BlogUsecase) UpdateBlog(ctx context.Context, id string, blog *blogpkg.
 	}
 
 	// Fetch existing blog to validate ownership
-	existingBlog, err := bu.blogRepo.GetBlogByID(id)
+	existingBlog, err := bu.blogRepo.FindBlogByID(id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch existing blog: %w", err)
 	}
@@ -126,7 +148,7 @@ func (bu *BlogUsecase) UpdateBlog(ctx context.Context, id string, blog *blogpkg.
 	updatedBlog, err := bu.blogRepo.UpdateBlog(id, blog)
 	if err != nil {
 		return nil, err
-		}
+	}
 	return updatedBlog, nil
 }
 
@@ -141,7 +163,7 @@ func (bu *BlogUsecase) DeleteBlog(ctx context.Context, id string) error {
 		return errors.New("invalid user ID")
 	}
 
-	blog, err := bu.blogRepo.GetBlogByID(id)
+	blog, err := bu.blogRepo.FindBlogByID(id)
 	if err != nil {
 		return fmt.Errorf("failed to fetch blog: %w", err)
 	}
@@ -213,7 +235,7 @@ func normalizePagination(p blogpkg.PaginationRequest) blogpkg.PaginationRequest 
 }
 
 func (bu *BlogUsecase) ToggleLike(ctx context.Context, blogID string, userID string) error {
-	blog, err := bu.blogRepo.GetBlogByID(blogID)
+	blog, err := bu.blogRepo.FindBlogByID(blogID)
 	if err != nil {
 		return err
 	}
@@ -233,7 +255,7 @@ func (bu *BlogUsecase) ToggleLike(ctx context.Context, blogID string, userID str
 }
 
 func (bu *BlogUsecase) AddComment(ctx context.Context, comment *blogpkg.Comment, blogID string) (*blogpkg.Comment, error) {
-	exists, err := bu.blogRepo.GetBlogByID(blogID)
+	exists, err := bu.blogRepo.FindBlogByID(blogID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check if blog exists: %w", err)
 	}
@@ -249,5 +271,4 @@ func (bu *BlogUsecase) AddComment(ctx context.Context, comment *blogpkg.Comment,
 	}
 
 	return bu.blogRepo.AddComment(ctx, newComment)
-	}
-	
+}

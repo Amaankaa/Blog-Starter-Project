@@ -139,6 +139,36 @@ func (_m *IBlogRepository) FilterByTags(ctx context.Context, tags []string, pagi
 	return r0, r1
 }
 
+// FindBlogByID provides a mock function with given fields: id
+func (_m *IBlogRepository) FindBlogByID(id string) (*blogpkg.Blog, error) {
+	ret := _m.Called(id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindBlogByID")
+	}
+
+	var r0 *blogpkg.Blog
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string) (*blogpkg.Blog, error)); ok {
+		return rf(id)
+	}
+	if rf, ok := ret.Get(0).(func(string) *blogpkg.Blog); ok {
+		r0 = rf(id)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*blogpkg.Blog)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAllBlogs provides a mock function with given fields: ctx, pagination
 func (_m *IBlogRepository) GetAllBlogs(ctx context.Context, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
 	ret := _m.Called(ctx, pagination)
@@ -271,6 +301,24 @@ func (_m *IBlogRepository) UpdateBlog(id string, blog *blogpkg.Blog) (*blogpkg.B
 	}
 
 	return r0, r1
+}
+
+// UpdateViewCount provides a mock function with given fields: ctx, blogID
+func (_m *IBlogRepository) UpdateViewCount(ctx context.Context, blogID string) error {
+	ret := _m.Called(ctx, blogID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateViewCount")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, blogID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // NewIBlogRepository creates a new instance of IBlogRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

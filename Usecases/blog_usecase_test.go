@@ -143,11 +143,23 @@ func (s *BlogUsecaseSuite) TestGetBlogByID_Success() {
 	assert := assert.New(s.T())
 	id := "blog-1"
 	expected := &blogpkg.Blog{ID: id, Title: "Title1", Content: "Cont1", AuthorID: "A1", Tags: []string{"t1"}}
+
+	// Case 1: No user_id in context, should NOT call UpdateViewCount
 	s.blogRepo.On("GetBlogByID", id).Return(expected, nil).Once()
 	ctx := context.Background()
 	result, err := s.blogUC.GetBlogByID(ctx, id)
 	assert.NoError(err)
 	assert.Equal(expected, result)
+	s.blogRepo.AssertExpectations(s.T())
+
+	// Case 2: user_id present in context, should call UpdateViewCount
+	s.blogRepo.ExpectedCalls = nil // reset
+	s.blogRepo.On("GetBlogByID", id).Return(expected, nil).Once()
+	s.blogRepo.On("UpdateViewCount", mock.Anything, id).Return(nil).Once()
+	ctxWithUser := context.WithValue(context.Background(), "user_id", "user-123")
+	result2, err2 := s.blogUC.GetBlogByID(ctxWithUser, id)
+	assert.NoError(err2)
+	assert.Equal(expected, result2)
 	s.blogRepo.AssertExpectations(s.T())
 }
 
@@ -162,6 +174,7 @@ func (s *BlogUsecaseSuite) TestGetBlogByID_ErrorEmptyID() {
 func (s *BlogUsecaseSuite) TestGetBlogByID_ErrorRepo() {
 	assert := assert.New(s.T())
 	id := "unknown"
+	// The usecase calls GetBlogByID first, then FindBlogByID in some flows. Mock both to avoid mock errors.
 	s.blogRepo.On("GetBlogByID", id).Return(nil, errors.New("not found")).Once()
 	result, err := s.blogUC.GetBlogByID(context.Background(), id)
 	assert.Error(err)
@@ -183,7 +196,7 @@ func (s *BlogUsecaseSuite) TestUpdateBlog_Success() {
 	finalBlog := &blogpkg.Blog{
 		ID: id, Title: "New Title", Content: "New Content", AuthorID: "author-1", Tags: []string{"t1", "t2"}, CreatedAt: oldBlog.CreatedAt, UpdatedAt: time.Now(),
 	}
-	s.blogRepo.On("GetBlogByID", id).Return(oldBlog, nil).Once()
+	s.blogRepo.On("FindBlogByID", id).Return(oldBlog, nil).Once()
 	s.blogRepo.On("UpdateBlog", id, mock.AnythingOfType("*blogpkg.Blog")).Return(finalBlog, nil).Once()
 	result, err := s.blogUC.UpdateBlog(ctx, id, updated)
 	assert.NoError(err)
@@ -197,7 +210,7 @@ func (s *BlogUsecaseSuite) TestUpdateBlog_NotFound() {
 	assert := assert.New(s.T())
 	ctx := context.WithValue(context.Background(), "user_id", "author-1")
 	id := "not-exist"
-	s.blogRepo.On("GetBlogByID", id).Return(nil, errors.New("not found")).Once()
+	s.blogRepo.On("FindBlogByID", id).Return(nil, errors.New("not found")).Once()
 	updated := &blogpkg.Blog{Title: "T", Content: "C", Tags: []string{"t1"}}
 	result, err := s.blogUC.UpdateBlog(ctx, id, updated)
 	assert.Error(err)
@@ -211,7 +224,7 @@ func (s *BlogUsecaseSuite) TestUpdateBlog_Unauthorized() {
 	ctx := context.WithValue(context.Background(), "user_id", "other-user")
 	id := "blog-1"
 	oldBlog := &blogpkg.Blog{ID: id, Title: "T", Content: "C", AuthorID: "author-1", Tags: []string{"t1"}, CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	s.blogRepo.On("GetBlogByID", id).Return(oldBlog, nil).Once()
+	s.blogRepo.On("FindBlogByID", id).Return(oldBlog, nil).Once()
 	updated := &blogpkg.Blog{Title: "T2", Content: "C2", Tags: []string{"t2"}}
 	result, err := s.blogUC.UpdateBlog(ctx, id, updated)
 	assert.Error(err)
@@ -225,7 +238,7 @@ func (s *BlogUsecaseSuite) TestDeleteBlog_Success() {
 	ctx := context.WithValue(context.Background(), "user_id", "author-1")
 	id := "blog-1"
 	blog := &blogpkg.Blog{ID: id, Title: "T", Content: "C", AuthorID: "author-1", Tags: []string{"t1"}, CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	s.blogRepo.On("GetBlogByID", id).Return(blog, nil).Once()
+	s.blogRepo.On("FindBlogByID", id).Return(blog, nil).Once()
 	s.blogRepo.On("DeleteBlog", id).Return(nil).Once()
 	err := s.blogUC.DeleteBlog(ctx, id)
 	assert.NoError(err)
@@ -236,7 +249,7 @@ func (s *BlogUsecaseSuite) TestDeleteBlog_NotFound() {
 	assert := assert.New(s.T())
 	ctx := context.WithValue(context.Background(), "user_id", "author-1")
 	id := "not-exist"
-	s.blogRepo.On("GetBlogByID", id).Return(nil, errors.New("not found")).Once()
+	s.blogRepo.On("FindBlogByID", id).Return(nil, errors.New("not found")).Once()
 	err := s.blogUC.DeleteBlog(ctx, id)
 	assert.Error(err)
 	assert.Contains(err.Error(), "not found")
@@ -248,7 +261,7 @@ func (s *BlogUsecaseSuite) TestDeleteBlog_Unauthorized() {
 	ctx := context.WithValue(context.Background(), "user_id", "other-user")
 	id := "blog-1"
 	blog := &blogpkg.Blog{ID: id, Title: "T", Content: "C", AuthorID: "author-1", Tags: []string{"t1"}, CreatedAt: time.Now(), UpdatedAt: time.Now()}
-	s.blogRepo.On("GetBlogByID", id).Return(blog, nil).Once()
+	s.blogRepo.On("FindBlogByID", id).Return(blog, nil).Once()
 	err := s.blogUC.DeleteBlog(ctx, id)
 	assert.Error(err)
 	assert.Contains(err.Error(), "unauthorized")
@@ -381,7 +394,7 @@ func (s *BlogUsecaseSuite) TestToggleLike_AddLike() {
 	blogID := "blog-1"
 	userID := "user-1"
 	blog := &blogpkg.Blog{ID: blogID, Likes: []string{"user-2"}}
-	s.blogRepo.On("GetBlogByID", blogID).Return(blog, nil).Once()
+	s.blogRepo.On("FindBlogByID", blogID).Return(blog, nil).Once()
 	s.blogRepo.On("AddLike", ctx, blogID, userID).Return(nil).Once()
 	err := s.blogUC.ToggleLike(ctx, blogID, userID)
 	assert.NoError(err)
@@ -394,7 +407,7 @@ func (s *BlogUsecaseSuite) TestToggleLike_RemoveLike() {
 	blogID := "blog-1"
 	userID := "user-1"
 	blog := &blogpkg.Blog{ID: blogID, Likes: []string{"user-1", "user-2"}}
-	s.blogRepo.On("GetBlogByID", blogID).Return(blog, nil).Once()
+	s.blogRepo.On("FindBlogByID", blogID).Return(blog, nil).Once()
 	s.blogRepo.On("RemoveLike", ctx, blogID, userID).Return(nil).Once()
 	err := s.blogUC.ToggleLike(ctx, blogID, userID)
 	assert.NoError(err)
@@ -406,7 +419,7 @@ func (s *BlogUsecaseSuite) TestToggleLike_BlogNotFound() {
 	ctx := context.Background()
 	blogID := "not-exist"
 	userID := "user-1"
-	s.blogRepo.On("GetBlogByID", blogID).Return(nil, nil).Once()
+	s.blogRepo.On("FindBlogByID", blogID).Return(nil, nil).Once()
 	err := s.blogUC.ToggleLike(ctx, blogID, userID)
 	assert.Error(err)
 	assert.Contains(err.Error(), "blog not found")
@@ -418,7 +431,7 @@ func (s *BlogUsecaseSuite) TestToggleLike_RepoError() {
 	ctx := context.Background()
 	blogID := "blog-1"
 	userID := "user-1"
-	s.blogRepo.On("GetBlogByID", blogID).Return(nil, errors.New("repo error")).Once()
+	s.blogRepo.On("FindBlogByID", blogID).Return(nil, errors.New("repo error")).Once()
 	err := s.blogUC.ToggleLike(ctx, blogID, userID)
 	assert.Error(err)
 	assert.Contains(err.Error(), "repo error")
@@ -439,7 +452,7 @@ func (s *BlogUsecaseSuite) TestAddComment_Success() {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	s.blogRepo.On("GetBlogByID", blogOID.Hex()).Return(blog, nil).Once()
+	s.blogRepo.On("FindBlogByID", blogOID.Hex()).Return(blog, nil).Once()
 	comment := &blogpkg.Comment{
 		BlogID:  blogOID,
 		UserID:  "user-1",
@@ -468,7 +481,7 @@ func (s *BlogUsecaseSuite) TestAddComment_BlogNotFound() {
 	assert := assert.New(s.T())
 	ctx := context.Background()
 	blogOID := primitive.NewObjectID()
-	s.blogRepo.On("GetBlogByID", blogOID.Hex()).Return(nil, nil).Once()
+	s.blogRepo.On("FindBlogByID", blogOID.Hex()).Return(nil, nil).Once()
 	comment := &blogpkg.Comment{
 		UserID:  "user-1",
 		Content: "Nice post!",
