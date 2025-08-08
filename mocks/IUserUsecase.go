@@ -32,6 +32,34 @@ func (_m *IUserUsecase) DemoteUser(ctx context.Context, userID string) error {
 	return r0
 }
 
+// GetUserProfile provides a mock function with given fields: ctx, userID
+func (_m *IUserUsecase) GetUserProfile(ctx context.Context, userID string) (userpkg.User, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserProfile")
+	}
+
+	var r0 userpkg.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (userpkg.User, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) userpkg.User); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(userpkg.User)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // LoginUser provides a mock function with given fields: ctx, login, password
 func (_m *IUserUsecase) LoginUser(ctx context.Context, login string, password string) (userpkg.User, string, string, error) {
 	ret := _m.Called(ctx, login, password)
@@ -218,6 +246,34 @@ func (_m *IUserUsecase) SendVerificationOTP(ctx context.Context, email string) e
 	}
 
 	return r0
+}
+
+// UpdateProfile provides a mock function with given fields: ctx, userID, updates
+func (_m *IUserUsecase) UpdateProfile(ctx context.Context, userID string, updates userpkg.UpdateProfileRequest) (userpkg.User, error) {
+	ret := _m.Called(ctx, userID, updates)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateProfile")
+	}
+
+	var r0 userpkg.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, userpkg.UpdateProfileRequest) (userpkg.User, error)); ok {
+		return rf(ctx, userID, updates)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, userpkg.UpdateProfileRequest) userpkg.User); ok {
+		r0 = rf(ctx, userID, updates)
+	} else {
+		r0 = ret.Get(0).(userpkg.User)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, userpkg.UpdateProfileRequest) error); ok {
+		r1 = rf(ctx, userID, updates)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // VerifyOTP provides a mock function with given fields: ctx, email, otp

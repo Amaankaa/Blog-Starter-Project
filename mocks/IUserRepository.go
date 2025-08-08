@@ -182,6 +182,34 @@ func (_m *IUserRepository) GetUserByLogin(ctx context.Context, login string) (us
 	return r0, r1
 }
 
+// GetUserProfile provides a mock function with given fields: ctx, userID
+func (_m *IUserRepository) GetUserProfile(ctx context.Context, userID string) (userpkg.User, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserProfile")
+	}
+
+	var r0 userpkg.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (userpkg.User, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) userpkg.User); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		r0 = ret.Get(0).(userpkg.User)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // UpdateIsVerifiedByEmail provides a mock function with given fields: ctx, email, verified
 func (_m *IUserRepository) UpdateIsVerifiedByEmail(ctx context.Context, email string, verified bool) error {
 	ret := _m.Called(ctx, email, verified)
@@ -216,6 +244,34 @@ func (_m *IUserRepository) UpdatePasswordByEmail(ctx context.Context, email stri
 	}
 
 	return r0
+}
+
+// UpdateProfile provides a mock function with given fields: ctx, userID, updates
+func (_m *IUserRepository) UpdateProfile(ctx context.Context, userID string, updates userpkg.UpdateProfileRequest) (userpkg.User, error) {
+	ret := _m.Called(ctx, userID, updates)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateProfile")
+	}
+
+	var r0 userpkg.User
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, userpkg.UpdateProfileRequest) (userpkg.User, error)); ok {
+		return rf(ctx, userID, updates)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, userpkg.UpdateProfileRequest) userpkg.User); ok {
+		r0 = rf(ctx, userID, updates)
+	} else {
+		r0 = ret.Get(0).(userpkg.User)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, userpkg.UpdateProfileRequest) error); ok {
+		r1 = rf(ctx, userID, updates)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // UpdateUserRoleByID provides a mock function with given fields: ctx, userID, role
