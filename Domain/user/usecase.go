@@ -14,6 +14,8 @@ type IUserUsecase interface {
 	DemoteUser(ctx context.Context, userID string) error
 	SendVerificationOTP(ctx context.Context, email string) error
 	VerifyUser(ctx context.Context, email, otp string) error
+	UpdateProfile(ctx context.Context, userID string, updates UpdateProfileRequest) (User, error)
+    GetUserProfile(ctx context.Context, userID string) (User, error)
 }
 
 // User Infrastructure interfaces

@@ -310,3 +310,11 @@ func (u *UserUsecase) VerifyUser(ctx context.Context, email, otp string) error {
 	_ = u.verificationRepo.DeleteVerification(ctx, email)
 	return nil
 }
+
+func (u *UserUsecase) UpdateProfile(ctx context.Context, userID string, updates userpkg.UpdateProfileRequest) (userpkg.User, error) {
+	return u.userRepo.UpdateProfile(ctx, userID, updates)
+}
+
+func (u *UserUsecase) GetUserProfile(ctx context.Context, userID string) (userpkg.User, error) {
+	return u.userRepo.GetUserProfile(ctx, userID)
+}

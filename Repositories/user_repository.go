@@ -128,3 +128,13 @@ func (ur *UserRepository) UpdateIsVerifiedByEmail(ctx context.Context, email str
 	}
 	return nil
 }
+
+func (ur *UserRepository) UpdateProfile(ctx context.Context, userID string, updates userpkg.UpdateProfileRequest) (userpkg.User, error) {
+	var user userpkg.User
+
+	return user, nil
+}
+
+func (ur *UserRepository) GetUserProfile(ctx context.Context, userID string) (userpkg.User, error) {
+	return ur.FindByID(ctx, userID)
+}

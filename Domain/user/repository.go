@@ -13,6 +13,8 @@ type IUserRepository interface {
 	UpdatePasswordByEmail(ctx context.Context, email, hashedPassword string) error
 	UpdateUserRoleByID(ctx context.Context, userID, role string) error
 	UpdateIsVerifiedByEmail(ctx context.Context, email string, verified bool) error
+	UpdateProfile(ctx context.Context, userID string, updates UpdateProfileRequest) (User, error)
+    GetUserProfile(ctx context.Context, userID string) (User, error)
 }
 
 type ITokenRepository interface {
