@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
+ 	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -104,9 +104,16 @@ func (uc *AIUseCase) GenerateContentSuggestions(ctx context.Context, req *aidoma
 		break
 	}
 
-	if len(geminiResp.Candidates) == 0 || len(geminiResp.Candidates[0].Content.Parts) == 0 || geminiResp.Candidates[0].Content.Parts[0].Text == "" {
-		return nil, errors.New("failed to parse AI response")
+	if len(geminiResp.Candidates) == 0 {
+		return nil, errors.New("failed to parse AI response: no candidates")
 	}
+	if len(geminiResp.Candidates[0].Content.Parts) == 0 {
+		return nil, errors.New("failed to parse AI response: no content parts")
+	}
+	if geminiResp.Candidates[0].Content.Parts[0].Text == "" {
+		return nil, errors.New("failed to parse AI response: empty suggestion text")
+	}
+	
 	if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
 		return &aidomain.AIResponse{
 			Suggestion: geminiResp.Candidates[0].Content.Parts[0].Text,
