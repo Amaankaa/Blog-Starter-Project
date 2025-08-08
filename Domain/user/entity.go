@@ -15,8 +15,25 @@ type User struct {
 	Password   string             `bson:"password" json:"password"`
 	Role       string             `bson:"role" json:"role"` // e.g. "admin", "user"
 	IsVerified bool               `bson:"isVerified" json:"isVerified"`
+    Bio        string             `bson:"bio,omitempty" json:"bio,omitempty"`
+    ProfilePicture  string         `bson:"profilePicture,omitempty" json:"profilePicture,omitempty"`
+    ContactInfo ContactInfo        `bson:"contactInfo,omitempty" json:"contactInfo,omitempty"`
+    UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
 
+type ContactInfo struct {
+    Phone   string `bson:"phone,omitempty" json:"phone,omitempty"`
+    Website string `bson:"website,omitempty" json:"website,omitempty"`
+    Twitter string `bson:"twitter,omitempty" json:"twitter,omitempty"`
+    LinkedIn string `bson:"linkedin,omitempty" json:"linkedin,omitempty"`
+}
+type UpdateProfileRequest struct {
+    Fullname        string      `json:"fullname,omitempty"`
+    Bio             string      `json:"bio,omitempty"`
+    ProfilePicture  string      `json:"profilePicture,omitempty"`
+    ContactInfo     ContactInfo `json:"contactInfo,omitempty"`
+}
+	
 // Token struct (We put it here since it's related with the User)
 type Token struct {
 	ID           primitive.ObjectID `bson:"_id,omitempty"`
