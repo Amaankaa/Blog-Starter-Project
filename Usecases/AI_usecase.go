@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+ 	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,22 +15,22 @@ import (
 	aidomain "github.com/Amaankaa/Blog-Starter-Project/Domain/AI"
 )
 
-type aiUseCase struct {
+type AIUseCase struct {
 	aiAPIKey   string
 	aiAPIURL   string
-	httpClient *http.Client
+	HTTPClient *http.Client
 }
 
 // NewAIUseCase takes the AI API key and URL as parameters, which should be loaded from environment variables.
 func NewAIUseCase(aiAPIKey, aiAPIURL string) aidomain.IAIUseCase {
-	return &aiUseCase{
+	return &AIUseCase{
 		aiAPIKey:   aiAPIKey,
 		aiAPIURL:   aiAPIURL,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		HTTPClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
-func (uc *aiUseCase) GenerateContentSuggestions(ctx context.Context, req *aidomain.AIRequest) (*aidomain.AIResponse, error) {
+func (uc *AIUseCase) GenerateContentSuggestions(ctx context.Context, req *aidomain.AIRequest) (*aidomain.AIResponse, error) {
 	// Construct the prompt for the AI model based on user input
 	prompt := "Generate blog content suggestions or enhancements."
 	if req.Keywords != "" {
@@ -76,7 +77,7 @@ func (uc *aiUseCase) GenerateContentSuggestions(ctx context.Context, req *aidoma
 	var geminiResp AI.GeminiResponse
 	maxRetries := 3
 	for i := 0; i < maxRetries; i++ {
-		resp, err := uc.httpClient.Do(httpReq)
+		resp, err := uc.HTTPClient.Do(httpReq)
 		if err != nil {
 			if i < maxRetries-1 {
 				log.Printf("AI API request failed, retrying in %d seconds... (attempt %d/%d)\n", 1<<i, i+1, maxRetries)
@@ -103,6 +104,16 @@ func (uc *aiUseCase) GenerateContentSuggestions(ctx context.Context, req *aidoma
 		break
 	}
 
+	if len(geminiResp.Candidates) == 0 {
+		return nil, errors.New("failed to parse AI response: no candidates")
+	}
+	if len(geminiResp.Candidates[0].Content.Parts) == 0 {
+		return nil, errors.New("failed to parse AI response: no content parts")
+	}
+	if geminiResp.Candidates[0].Content.Parts[0].Text == "" {
+		return nil, errors.New("failed to parse AI response: empty suggestion text")
+	}
+	
 	if len(geminiResp.Candidates) > 0 && len(geminiResp.Candidates[0].Content.Parts) > 0 {
 		return &aidomain.AIResponse{
 			Suggestion: geminiResp.Candidates[0].Content.Parts[0].Text,

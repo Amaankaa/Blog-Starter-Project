@@ -18,15 +18,15 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	r.POST("/verify-otp", controller.VerifyOTP)
 	r.POST("/reset-password", controller.ResetPassword)
 
-	aiGroup := r.Group("/ai")
+	
+	// Protected routes
+	protected := r.Group("")
+	protected.Use(authMiddleware.AuthMiddleware())
+	aiGroup := protected.Group("/ai")
 	aiGroup.Use(aiRateLimiter)
 	{
 		aiGroup.POST("/suggest-content", aiController.SuggestContent)
 	}
-	// Protected routes
-	protected := r.Group("")
-	protected.Use(authMiddleware.AuthMiddleware())
-
 	//User routes
 	protected.POST("/logout", controller.Logout)
 
