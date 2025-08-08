@@ -22,13 +22,10 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	// Protected routes
 	protected := r.Group("")
 	protected.Use(authMiddleware.AuthMiddleware())
-	aiGroup := protected.Group("/ai")
-	aiGroup.Use(aiRateLimiter)
-	{
-		aiGroup.POST("/suggest-content", aiController.SuggestContent)
-	}
+
 	//User routes
 	protected.POST("/logout", controller.Logout)
+	protected.GET("/profile", controller.GetProfile)
 
 	// Admin routes for user promotion and demotion
 	admin := protected.Group("")
@@ -50,7 +47,11 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	protected.POST("/blogs/:id/comment", blogController.AddComment)
 
 	// AI routes
-	
+	aiGroup := protected.Group("/ai")
+	aiGroup.Use(aiRateLimiter)
+	{
+		aiGroup.POST("/suggest-content", aiController.SuggestContent)
+	}
 
 	return r
 }
