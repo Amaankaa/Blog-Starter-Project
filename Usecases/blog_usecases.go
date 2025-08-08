@@ -74,17 +74,22 @@ func (bu *BlogUsecase) GetBlogByID(ctx context.Context, id string) (*blogpkg.Blo
 	if _, ok := userID.(string); !ok {
 		return blog, nil
 	}
+	if userID == blog.AuthorID {
+		return blog, nil
+	}
 
 	err = bu.blogRepo.UpdateViewCount(ctx, id)
 	if err != nil {
 		return nil, err
 	}
+
+	blog.Views++
 	return blog, nil
 }
 
 // GetAllBlogs returns paginated blogs
 func (bu *BlogUsecase) GetAllBlogs(ctx context.Context, pagination blogpkg.PaginationRequest) (blogpkg.PaginationResponse, error) {
-   // Set default values if not provided
+	// Set default values if not provided
 	pagination = normalizePagination(pagination)
 
 	result, err := bu.blogRepo.GetAllBlogs(ctx, pagination)
@@ -143,7 +148,7 @@ func (bu *BlogUsecase) UpdateBlog(ctx context.Context, id string, blog *blogpkg.
 	updatedBlog, err := bu.blogRepo.UpdateBlog(id, blog)
 	if err != nil {
 		return nil, err
-		}
+	}
 	return updatedBlog, nil
 }
 
@@ -266,5 +271,4 @@ func (bu *BlogUsecase) AddComment(ctx context.Context, comment *blogpkg.Comment,
 	}
 
 	return bu.blogRepo.AddComment(ctx, newComment)
-	}
-	
+}
