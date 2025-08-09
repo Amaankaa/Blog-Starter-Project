@@ -36,8 +36,13 @@ func (s *ControllerTestSuite) SetupTest() {
 	s.router.POST("/refresh", ctrl.RefreshToken)
 	s.router.POST("/verify-otp", ctrl.VerifyOTP)
 	s.router.POST("/reset-password", ctrl.ResetPassword)
-	s.router.PUT("/user/:id/promote", ctrl.PromoteUser)
-	s.router.PUT("/user/:id/demote", ctrl.DemoteUser)
+	// Inject a dummy user_id into context to simulate authenticated admin
+	addActor := func(c *gin.Context) {
+		c.Set("user_id", "admin999")
+		c.Next()
+	}
+	s.router.PUT("/user/:id/promote", addActor, ctrl.PromoteUser)
+	s.router.PUT("/user/:id/demote", addActor, ctrl.DemoteUser)
 }
 
 func (s *ControllerTestSuite) performRequest(method, path string, body interface{}) *httptest.ResponseRecorder {
@@ -186,19 +191,19 @@ func (s *ControllerTestSuite) TestLogin_Unverified() {
 
 func (s *ControllerTestSuite) TestPromoteUser_Success() {
 	id := "user123"
-	s.mockUC.On("PromoteUser", mock.Anything, id).Return(nil)
+	s.mockUC.On("PromoteUser", mock.Anything, id, "admin999").Return(nil)
 	req := httptest.NewRequest(http.MethodPut, "/user/"+id+"/promote", nil)
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, req)
 	s.Equal(http.StatusOK, w.Code)
 	s.Contains(w.Body.String(), "user promoted")
-	s.mockUC.AssertCalled(s.T(), "PromoteUser", mock.Anything, id)
+	s.mockUC.AssertCalled(s.T(), "PromoteUser", mock.Anything, id, "admin999")
 }
 
 func (s *ControllerTestSuite) TestPromoteUser_Error() {
 	id := "user123"
 	errMock := errors.New("fail to promote")
-	s.mockUC.On("PromoteUser", mock.Anything, id).Return(errMock)
+	s.mockUC.On("PromoteUser", mock.Anything, id, "admin999").Return(errMock)
 	req := httptest.NewRequest(http.MethodPut, "/user/"+id+"/promote", nil)
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, req)
@@ -208,19 +213,19 @@ func (s *ControllerTestSuite) TestPromoteUser_Error() {
 
 func (s *ControllerTestSuite) TestDemoteUser_Success() {
 	id := "user456"
-	s.mockUC.On("DemoteUser", mock.Anything, id).Return(nil)
+	s.mockUC.On("DemoteUser", mock.Anything, id, "admin999").Return(nil)
 	req := httptest.NewRequest(http.MethodPut, "/user/"+id+"/demote", nil)
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, req)
 	s.Equal(http.StatusOK, w.Code)
 	s.Contains(w.Body.String(), "user demoted")
-	s.mockUC.AssertCalled(s.T(), "DemoteUser", mock.Anything, id)
+	s.mockUC.AssertCalled(s.T(), "DemoteUser", mock.Anything, id, "admin999")
 }
 
 func (s *ControllerTestSuite) TestDemoteUser_Error() {
 	id := "user456"
 	errMock := errors.New("fail to demote")
-	s.mockUC.On("DemoteUser", mock.Anything, id).Return(errMock)
+	s.mockUC.On("DemoteUser", mock.Anything, id, "admin999").Return(errMock)
 	req := httptest.NewRequest(http.MethodPut, "/user/"+id+"/demote", nil)
 	w := httptest.NewRecorder()
 	s.router.ServeHTTP(w, req)

@@ -290,12 +290,50 @@ func (u *UserUsecase) Logout(ctx context.Context, userID string) error {
 	return u.tokenRepo.DeleteTokensByUserID(ctx, userID)
 }
 
-func (uu *UserUsecase) PromoteUser(ctx context.Context, userID string) error {
-	return uu.userRepo.UpdateUserRoleByID(ctx, userID, "admin")
+func (uu *UserUsecase) PromoteUser(ctx context.Context, targetUserID string, actorUserID string) error {
+	if targetUserID == actorUserID {
+		return errors.New("cannot promote yourself")
+	}
+	// Load users
+	target, err := uu.userRepo.FindByID(ctx, targetUserID)
+	if err != nil {
+		return err
+	}
+	actor, err := uu.userRepo.FindByID(ctx, actorUserID)
+	if err != nil {
+		return err
+	}
+	// Block acting on your promoter
+	if !actor.PromotedBy.IsZero() && actor.PromotedBy.Hex() == target.ID.Hex() {
+		return errors.New("cannot act on your promoter")
+	}
+	if target.Role == "admin" {
+		return nil
+	}
+	if err := uu.userRepo.UpdateRoleAndPromoter(ctx, targetUserID, "admin", &actorUserID); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (uu *UserUsecase) DemoteUser(ctx context.Context, userID string) error {
-	return uu.userRepo.UpdateUserRoleByID(ctx, userID, "user")
+func (uu *UserUsecase) DemoteUser(ctx context.Context, targetUserID string, actorUserID string) error {
+	// Load users
+	target, err := uu.userRepo.FindByID(ctx, targetUserID)
+	if err != nil {
+		return err
+	}
+	actor, err := uu.userRepo.FindByID(ctx, actorUserID)
+	if err != nil {
+		return err
+	}
+	// Block acting on your promoter
+	if !actor.PromotedBy.IsZero() && actor.PromotedBy.Hex() == target.ID.Hex() {
+		return errors.New("cannot act on your promoter")
+	}
+	if err := uu.userRepo.UpdateRoleAndPromoter(ctx, targetUserID, "user", nil); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (u *UserUsecase) SendVerificationOTP(ctx context.Context, email string) error {

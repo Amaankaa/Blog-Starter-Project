@@ -14,17 +14,17 @@ type IUserUsecase struct {
 	mock.Mock
 }
 
-// DemoteUser provides a mock function with given fields: ctx, userID
-func (_m *IUserUsecase) DemoteUser(ctx context.Context, userID string) error {
-	ret := _m.Called(ctx, userID)
+// DemoteUser provides a mock function with given fields: ctx, targetUserID, actorUserID
+func (_m *IUserUsecase) DemoteUser(ctx context.Context, targetUserID string, actorUserID string) error {
+	ret := _m.Called(ctx, targetUserID, actorUserID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DemoteUser")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, userID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, targetUserID, actorUserID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -120,17 +120,17 @@ func (_m *IUserUsecase) Logout(ctx context.Context, userID string) error {
 	return r0
 }
 
-// PromoteUser provides a mock function with given fields: ctx, userID
-func (_m *IUserUsecase) PromoteUser(ctx context.Context, userID string) error {
-	ret := _m.Called(ctx, userID)
+// PromoteUser provides a mock function with given fields: ctx, targetUserID, actorUserID
+func (_m *IUserUsecase) PromoteUser(ctx context.Context, targetUserID string, actorUserID string) error {
+	ret := _m.Called(ctx, targetUserID, actorUserID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for PromoteUser")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, userID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
+		r0 = rf(ctx, targetUserID, actorUserID)
 	} else {
 		r0 = ret.Error(0)
 	}

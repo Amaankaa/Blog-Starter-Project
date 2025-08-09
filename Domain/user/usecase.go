@@ -10,8 +10,8 @@ type IUserUsecase interface {
 	SendResetOTP(ctx context.Context, email string) error
 	VerifyOTP(ctx context.Context, email, otp string) error
 	ResetPassword(ctx context.Context, email, newPassword string) error
-	PromoteUser(ctx context.Context, userID string) error
-	DemoteUser(ctx context.Context, userID string) error
+	PromoteUser(ctx context.Context, targetUserID string, actorUserID string) error
+	DemoteUser(ctx context.Context, targetUserID string, actorUserID string) error
 	SendVerificationOTP(ctx context.Context, email string) error
 	VerifyUser(ctx context.Context, email, otp string) error
 	UpdateProfile(ctx context.Context, userID string, updates UpdateProfileRequest) (User, error)

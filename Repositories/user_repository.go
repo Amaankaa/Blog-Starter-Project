@@ -115,6 +115,36 @@ func (ur *UserRepository) UpdateUserRoleByID(ctx context.Context, userID, role s
 	return nil
 }
 
+// UpdateRoleAndPromoter atomically updates role and promoted_by in a single write.
+func (ur *UserRepository) UpdateRoleAndPromoter(ctx context.Context, userID string, role string, promoterID *string) error {
+	oid, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return err
+	}
+	filter := bson.M{"_id": oid}
+	set := bson.M{"role": role}
+	update := bson.M{"$set": set}
+	if promoterID != nil {
+		// set promoted_by
+		promoterOID, err := primitive.ObjectIDFromHex(*promoterID)
+		if err != nil {
+			return err
+		}
+		set["promoted_by"] = promoterOID
+	} else {
+		// unset promoted_by
+		update["$unset"] = bson.M{"promoted_by": ""}
+	}
+	res, err := ur.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return errors.New("user not found")
+	}
+	return nil
+}
+
 // UpdateIsVerifiedByEmail sets a user's verification status by email
 func (ur *UserRepository) UpdateIsVerifiedByEmail(ctx context.Context, email string, verified bool) error {
 	filter := bson.M{"email": email}

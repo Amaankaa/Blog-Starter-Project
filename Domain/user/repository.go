@@ -15,6 +15,7 @@ type IUserRepository interface {
 	UpdateIsVerifiedByEmail(ctx context.Context, email string, verified bool) error
 	UpdateProfile(ctx context.Context, userID string, updates UpdateProfileRequest) (User, error)
     GetUserProfile(ctx context.Context, userID string) (User, error)
+	UpdateRoleAndPromoter(ctx context.Context, userID string, role string, promoterID *string) error
 }
 
 type ITokenRepository interface {

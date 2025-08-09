@@ -188,9 +188,14 @@ func (ctrl *Controller) Logout(c *gin.Context) {
 
 func (ctrl *Controller) PromoteUser(c *gin.Context) {
 	userID := c.Param("id")
+	actorID, ok := c.Get("user_id")
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
-	if err := ctrl.userUsecase.PromoteUser(ctx, userID); err != nil {
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing user context"})
+		return
+	}
+	if err := ctrl.userUsecase.PromoteUser(ctx, userID, actorID.(string)); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -199,9 +204,14 @@ func (ctrl *Controller) PromoteUser(c *gin.Context) {
 
 func (ctrl *Controller) DemoteUser(c *gin.Context) {
 	userID := c.Param("id")
+	actorID, ok := c.Get("user_id")
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()
-	if err := ctrl.userUsecase.DemoteUser(ctx, userID); err != nil {
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "missing user context"})
+		return
+	}
+	if err := ctrl.userUsecase.DemoteUser(ctx, userID, actorID.(string)); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
