@@ -75,7 +75,19 @@ func (s *UserUsecaseTestSuite) TestRegisterFirstUserAsAdmin() {
 	s.mockUserRepo.On("CreateUser", s.ctx, mock.Anything).Run(func(args mock.Arguments) {
 		userArg := args.Get(1).(userpkg.User)
 		s.Equal("admin", userArg.Role)
-	}).Return(testUser, nil)
+	}).Return(func(ctx context.Context, user userpkg.User) userpkg.User {
+		user.Role = "admin" // Ensure the returned user has the role set
+		return user
+	}, nil)
+
+	// Mock email sending for verification
+	s.mockEmailSender.On("SendEmail", testUser.Email, "Email Verification Code", mock.MatchedBy(func(body string) bool {
+		return strings.Contains(body, "Your verification OTP:")
+	})).Return(nil)
+
+	// Mock OTP hashing and verification storage
+	s.mockPasswordSvc.On("HashPassword", mock.Anything).Return("hashedOTP", nil)
+	s.mockVerificationRepo.On("StoreVerification", s.ctx, mock.Anything).Return(nil)
 
 	// Act
 	result, err := s.usecase.RegisterUser(s.ctx, testUser)
@@ -105,7 +117,19 @@ func (s *UserUsecaseTestSuite) TestRegisterSecondUserAsNormal() {
 	s.mockUserRepo.On("CreateUser", s.ctx, mock.Anything).Run(func(args mock.Arguments) {
 		userArg := args.Get(1).(userpkg.User)
 		s.Equal("user", userArg.Role)
-	}).Return(testUser, nil)
+	}).Return(func(ctx context.Context, user userpkg.User) userpkg.User {
+		user.Role = "user" // Ensure the returned user has the role set
+		return user
+	}, nil)
+
+	// Mock email sending for verification
+	s.mockEmailSender.On("SendEmail", testUser.Email, "Email Verification Code", mock.MatchedBy(func(body string) bool {
+		return strings.Contains(body, "Your verification OTP:")
+	})).Return(nil)
+
+	// Mock OTP hashing and verification storage
+	s.mockPasswordSvc.On("HashPassword", mock.Anything).Return("hashedOTP", nil)
+	s.mockVerificationRepo.On("StoreVerification", s.ctx, mock.Anything).Return(nil)
 
 	// Act
 	result, err := s.usecase.RegisterUser(s.ctx, testUser)
@@ -143,7 +167,11 @@ func (s *UserUsecaseTestSuite) TestRejectWeakPassword() {
 		Password: "weak",
 		Fullname: "Test User",
 	}
-	s.mockEmailVerifier.On("IsRealEmail", mock.Anything).Return(true, nil)
+
+	// Mock the checks that happen before password validation
+	s.mockUserRepo.On("ExistsByUsername", s.ctx, testUser.Username).Return(false, nil)
+	s.mockUserRepo.On("ExistsByEmail", s.ctx, testUser.Email).Return(false, nil)
+	s.mockEmailVerifier.On("IsRealEmail", testUser.Email).Return(true, nil)
 
 	// Act
 	_, err := s.usecase.RegisterUser(s.ctx, testUser)
@@ -249,14 +277,14 @@ func (s *UserUsecaseTestSuite) TestLoginUser_Success() {
 	hashedPassword := "hashedpassword"
 	userID := primitive.NewObjectID()
 
-   testUser := userpkg.User{
-	   ID:         userID,
-	   Username:   login,
-	   Password:   hashedPassword,
-	   Role:       "user",
-	   // mark user as verified to pass verification check
-	   IsVerified: true,
-   }
+	testUser := userpkg.User{
+		ID:       userID,
+		Username: login,
+		Password: hashedPassword,
+		Role:     "user",
+		// mark user as verified to pass verification check
+		IsVerified: true,
+	}
 
 	tokenRes := userpkg.TokenResult{
 		AccessToken:      "access_token",
@@ -306,12 +334,12 @@ func (s *UserUsecaseTestSuite) TestLoginUser_WrongPassword() {
 	password := "wrongpassword"
 	hashedPassword := "hashedpassword"
 
-   testUser := userpkg.User{
-	   Username:   login,
-	   Password:   hashedPassword,
-	   // mark user as verified to bypass verification check
-	   IsVerified: true,
-   }
+	testUser := userpkg.User{
+		Username: login,
+		Password: hashedPassword,
+		// mark user as verified to bypass verification check
+		IsVerified: true,
+	}
 
 	s.mockUserRepo.On("GetUserByLogin", s.ctx, login).Return(testUser, nil)
 	s.mockPasswordSvc.On("ComparePassword", hashedPassword, password).Return(errors.New("mismatch"))

@@ -148,26 +148,24 @@ func (s *ControllerTestSuite) TestRegister_DuplicateEmail() {
 	s.Equal(http.StatusBadRequest, w.Code)
 }
 
-// TestRegister_Success ensures successful registration triggers verification
+// TestRegister_Success ensures successful registration (verification is embedded in RegisterUser)
 func (s *ControllerTestSuite) TestRegister_Success() {
 	input := userpkg.User{Username: "newuser", Email: "new@example.com", Password: "Pass@1234", Fullname: "New User"}
 	expected := userpkg.User{Username: "newuser", Email: "new@example.com", Fullname: "New User"}
 	s.mockUC.On("RegisterUser", mock.Anything, input).Return(expected, nil)
-	s.mockUC.On("SendVerificationOTP", mock.Anything, input.Email).Return(nil)
 
 	w := s.performRequest("POST", "/register", input)
 	s.Equal(http.StatusCreated, w.Code)
 }
 
-// TestRegister_VerificationFail returns 500 if OTP send fails
+// TestRegister_VerificationFail returns 400 if OTP send fails (embedded in RegisterUser)
 func (s *ControllerTestSuite) TestRegister_VerificationFail() {
 	input := userpkg.User{Username: "newuser", Email: "new@example.com", Password: "Pass@1234", Fullname: "New User"}
-	expected := userpkg.User{Username: "newuser", Email: "new@example.com", Fullname: "New User"}
-	s.mockUC.On("RegisterUser", mock.Anything, input).Return(expected, nil)
-	s.mockUC.On("SendVerificationOTP", mock.Anything, input.Email).Return(errors.New("mail service down"))
+	// RegisterUser should return an error when email sending fails (this is embedded in RegisterUser)
+	s.mockUC.On("RegisterUser", mock.Anything, input).Return(userpkg.User{}, errors.New("failed to send verification code"))
 
 	w := s.performRequest("POST", "/register", input)
-	s.Equal(http.StatusInternalServerError, w.Code)
+	s.Equal(http.StatusBadRequest, w.Code)
 }
 
 func (s *ControllerTestSuite) TestLogin_InvalidCredentials() {
