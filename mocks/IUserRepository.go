@@ -292,6 +292,24 @@ func (_m *IUserRepository) UpdateUserRoleByID(ctx context.Context, userID string
 	return r0
 }
 
+// UpdateRoleAndPromoter provides a mock function with given fields: ctx, userID, role, promoterID
+func (_m *IUserRepository) UpdateRoleAndPromoter(ctx context.Context, userID string, role string, promoterID *string) error {
+	ret := _m.Called(ctx, userID, role, promoterID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateRoleAndPromoter")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *string) error); ok {
+		r0 = rf(ctx, userID, role, promoterID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // NewIUserRepository creates a new instance of IUserRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewIUserRepository(t interface {

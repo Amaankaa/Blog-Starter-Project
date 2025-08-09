@@ -19,6 +19,7 @@ type User struct {
     ProfilePicture  string         `bson:"profilePicture,omitempty" json:"profilePicture,omitempty"`
     ContactInfo ContactInfo        `bson:"contactInfo,omitempty" json:"contactInfo,omitempty"`
     UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
+	PromotedBy primitive.ObjectID `bson:"promoted_by,omitempty" json:"promoted_by,omitempty"`
 }
 
 type ContactInfo struct {

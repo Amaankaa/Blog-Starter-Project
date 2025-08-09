@@ -668,20 +668,30 @@ func (s *UserUsecaseTestSuite) TestLogout_FailureFromTokenRepo() {
 
 // TestPromoteUser_CallsRepo ensures PromoteUser calls the repository
 func (s *UserUsecaseTestSuite) TestPromoteUser_CallsRepo() {
-	id := "user123"
-	s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "admin").Return(nil)
-	err := s.usecase.PromoteUser(s.ctx, id)
+	targetID := "user123"
+	actorID := "admin999"
+	s.mockUserRepo.On("FindByID", s.ctx, targetID).Return(userpkg.User{Role: "user"}, nil)
+	s.mockUserRepo.On("FindByID", s.ctx, actorID).Return(userpkg.User{}, nil)
+	s.mockUserRepo.On("UpdateRoleAndPromoter", s.ctx, targetID, "admin", mock.AnythingOfType("*string")).Run(func(args mock.Arguments) {
+		// verify pointer value matches actorID
+		p := args.Get(3).(*string)
+		s.Equal(actorID, *p)
+	}).Return(nil)
+	err := s.usecase.PromoteUser(s.ctx, targetID, actorID)
 	s.NoError(err)
-	s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "admin")
+	s.mockUserRepo.AssertCalled(s.T(), "UpdateRoleAndPromoter", s.ctx, targetID, "admin", mock.AnythingOfType("*string"))
 }
 
 // TestDemoteUser_CallsRepo ensures DemoteUser calls the repository
 func (s *UserUsecaseTestSuite) TestDemoteUser_CallsRepo() {
-	id := "user456"
-	s.mockUserRepo.On("UpdateUserRoleByID", s.ctx, id, "user").Return(nil)
-	err := s.usecase.DemoteUser(s.ctx, id)
+	targetID := "user456"
+	actorID := "admin999"
+	s.mockUserRepo.On("FindByID", s.ctx, targetID).Return(userpkg.User{}, nil)
+	s.mockUserRepo.On("FindByID", s.ctx, actorID).Return(userpkg.User{}, nil)
+	s.mockUserRepo.On("UpdateRoleAndPromoter", s.ctx, targetID, "user", (*string)(nil)).Return(nil)
+	err := s.usecase.DemoteUser(s.ctx, targetID, actorID)
 	s.NoError(err)
-	s.mockUserRepo.AssertCalled(s.T(), "UpdateUserRoleByID", s.ctx, id, "user")
+	s.mockUserRepo.AssertCalled(s.T(), "UpdateRoleAndPromoter", s.ctx, targetID, "user", (*string)(nil))
 }
 
 // TestSendVerificationOTP_Success ensures registration OTP is stored and sent
