@@ -65,7 +65,10 @@ func main() {
 	}
 
 	// Services
-	cloudinaryService := infrastructure.NewCloudinaryService(cloudName, cloudAPIKey, cloudAPISecret)
+	cloudinaryService, err := infrastructure.NewCloudinaryService(cloudName, cloudAPIKey, cloudAPISecret)
+	if err != nil {
+		log.Fatalf("Failed to initialize Cloudinary service: %v", err)
+	}
 
 	//Repositories: only take collection (not services)
 	userRepo := repositories.NewUserRepository(userCollection)

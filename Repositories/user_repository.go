@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"reflect"
 	"time"
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
@@ -179,8 +180,11 @@ func (ur *UserRepository) UpdateProfile(ctx context.Context, userID string, upda
     if updates.ProfilePicture != "" {
         updateDoc["$set"].(bson.M)["profilePicture"] = updates.ProfilePicture
     }
-    updateDoc["$set"].(bson.M)["contactInfo"] = updates.ContactInfo
-    filter := bson.M{"_id": oid}
+	// Only update contactInfo if it is not empty
+    if !reflect.DeepEqual(updates.ContactInfo, userpkg.ContactInfo{}) {
+        updateDoc["$set"].(bson.M)["contactInfo"] = updates.ContactInfo
+    }
+	filter := bson.M{"_id": oid}
     _, err = ur.collection.UpdateOne(ctx, filter, updateDoc)
     if err != nil {
         return userpkg.User{}, err

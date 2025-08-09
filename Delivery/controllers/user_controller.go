@@ -301,10 +301,17 @@ func (ctrl *Controller) UpdateProfile(c *gin.Context) {
 		header = nil
 	}
 
+	var filename string
+	if header != nil {
+		filename = header.Filename
+	} else {
+		filename = ""
+	}
+
     ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
     defer cancel()
 
-    updatedUser, err := ctrl.userUsecase.UpdateProfile(ctx, userID, updates, file, header.Filename)
+    updatedUser, err := ctrl.userUsecase.UpdateProfile(ctx, userID, updates, file, filename)
     if err != nil {
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
