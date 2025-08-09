@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"time"
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
 
@@ -130,9 +131,53 @@ func (ur *UserRepository) UpdateIsVerifiedByEmail(ctx context.Context, email str
 }
 
 func (ur *UserRepository) UpdateProfile(ctx context.Context, userID string, updates userpkg.UpdateProfileRequest) (userpkg.User, error) {
-	var user userpkg.User
+	oid, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return userpkg.User{}, err
+	}
 
-	return user, nil
+	// Build update document only with non-empty fields
+	updateDoc := bson.M{}
+	if updates.Fullname != "" {
+		updateDoc["fullname"] = updates.Fullname
+	}
+	if updates.Bio != "" {
+		updateDoc["bio"] = updates.Bio
+	}
+	if updates.ProfilePicture != "" {
+		updateDoc["profilePicture"] = updates.ProfilePicture
+	}
+	// Update contact info fields if provided
+	if updates.ContactInfo.Phone != "" || updates.ContactInfo.Website != "" || 
+	   updates.ContactInfo.Twitter != "" || updates.ContactInfo.LinkedIn != "" {
+		updateDoc["contactInfo"] = updates.ContactInfo
+	}
+	
+	// Always update the updatedAt field
+	updateDoc["updatedAt"] = time.Now()
+
+	if len(updateDoc) == 1 { // Only updatedAt was set, no actual updates
+		return userpkg.User{}, errors.New("no fields to update")
+	}
+
+	filter := bson.M{"_id": oid}
+	update := bson.M{"$set": updateDoc}
+
+	result, err := ur.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return userpkg.User{}, err
+	}
+	if result.MatchedCount == 0 {
+		return userpkg.User{}, errors.New("user not found")
+	}
+
+	// Return the updated user
+	updatedUser, err := ur.GetUserProfile(ctx, userID)
+	if err != nil {
+		return userpkg.User{}, err
+	}
+
+	return updatedUser, nil
 }
 
 func (ur *UserRepository) GetUserProfile(ctx context.Context, userID string) (userpkg.User, error) {

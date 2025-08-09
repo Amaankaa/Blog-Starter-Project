@@ -244,3 +244,39 @@ func (ctrl *Controller) GetProfile(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, user)
 }
+
+func (ctrl *Controller) UpdateProfile(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var updates userpkg.UpdateProfileRequest
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	updatedUser, err := ctrl.userUsecase.UpdateProfile(ctx, userID, updates)
+	if err != nil {
+		if err.Error() == "user not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+		if err.Error() == "no fields to update" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "No fields to update"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Profile updated successfully",
+		"user":    updatedUser,
+	})
+}

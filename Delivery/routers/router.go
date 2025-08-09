@@ -26,6 +26,7 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	//User routes
 	protected.POST("/logout", controller.Logout)
 	protected.GET("/profile", controller.GetProfile)
+	protected.PUT("/profile", controller.UpdateProfile)
 
 	// Admin routes for user promotion and demotion
 	admin := protected.Group("")

@@ -38,6 +38,9 @@ func (s *ControllerTestSuite) SetupTest() {
 	s.router.POST("/reset-password", ctrl.ResetPassword)
 	s.router.PUT("/user/:id/promote", ctrl.PromoteUser)
 	s.router.PUT("/user/:id/demote", ctrl.DemoteUser)
+	// Profile routes
+	s.router.GET("/profile", ctrl.GetProfile)
+	s.router.PUT("/profile", ctrl.UpdateProfile)
 }
 
 func (s *ControllerTestSuite) performRequest(method, path string, body interface{}) *httptest.ResponseRecorder {
@@ -226,6 +229,189 @@ func (s *ControllerTestSuite) TestDemoteUser_Error() {
 	s.router.ServeHTTP(w, req)
 	s.Equal(http.StatusBadRequest, w.Code)
 	s.Contains(w.Body.String(), "fail to demote")
+}
+
+func (s *ControllerTestSuite) TestGetProfile_Success() {
+	userID := "user123"
+	expectedUser := userpkg.User{
+		Username: "testuser",
+		Email:    "test@example.com",
+		Fullname: "Test User",
+		Bio:      "Test bio",
+	}
+	s.mockUC.On("GetUserProfile", mock.Anything, userID).Return(expectedUser, nil)
+	
+	// Create authenticated request
+	req := httptest.NewRequest("GET", "/profile", nil)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+	ctx.Set("user_id", userID)
+	
+	ctrl := controllers.NewController(s.mockUC)
+	ctrl.GetProfile(ctx)
+	
+	s.Equal(http.StatusOK, w.Code)
+	var response userpkg.User
+	s.NoError(json.Unmarshal(w.Body.Bytes(), &response))
+	s.Equal(expectedUser.Username, response.Username)
+	s.Equal(expectedUser.Email, response.Email)
+}
+
+func (s *ControllerTestSuite) TestGetProfile_Unauthorized() {
+	req := httptest.NewRequest("GET", "/profile", nil)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+	// Don't set user_id to simulate unauthorized access
+	
+	ctrl := controllers.NewController(s.mockUC)
+	ctrl.GetProfile(ctx)
+	
+	s.Equal(http.StatusUnauthorized, w.Code)
+}
+
+func (s *ControllerTestSuite) TestUpdateProfile_Success() {
+	userID := "user123"
+	updateReq := userpkg.UpdateProfileRequest{
+		Fullname: "Updated Name",
+		Bio:      "Updated bio",
+		ContactInfo: userpkg.ContactInfo{
+			Phone: "+1234567890",
+		},
+	}
+	
+	expectedUser := userpkg.User{
+		Username: "testuser",
+		Email:    "test@example.com",
+		Fullname: "Updated Name",
+		Bio:      "Updated bio",
+		ContactInfo: userpkg.ContactInfo{
+			Phone: "+1234567890",
+		},
+	}
+	
+	s.mockUC.On("UpdateProfile", mock.Anything, userID, updateReq).Return(expectedUser, nil)
+	
+	reqBody, _ := json.Marshal(updateReq)
+	req := httptest.NewRequest("PUT", "/profile", bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+	ctx.Set("user_id", userID)
+	
+	ctrl := controllers.NewController(s.mockUC)
+	ctrl.UpdateProfile(ctx)
+	
+	s.Equal(http.StatusOK, w.Code)
+	var response map[string]interface{}
+	s.NoError(json.Unmarshal(w.Body.Bytes(), &response))
+	s.Equal("Profile updated successfully", response["message"])
+	s.Contains(response, "user")
+}
+
+func (s *ControllerTestSuite) TestUpdateProfile_Unauthorized() {
+	updateReq := userpkg.UpdateProfileRequest{
+		Fullname: "Updated Name",
+	}
+	
+	reqBody, _ := json.Marshal(updateReq)
+	req := httptest.NewRequest("PUT", "/profile", bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+	// Don't set user_id to simulate unauthorized access
+	
+	ctrl := controllers.NewController(s.mockUC)
+	ctrl.UpdateProfile(ctx)
+	
+	s.Equal(http.StatusUnauthorized, w.Code)
+}
+
+func (s *ControllerTestSuite) TestUpdateProfile_InvalidJSON() {
+	userID := "user123"
+	
+	req := httptest.NewRequest("PUT", "/profile", bytes.NewBuffer([]byte("invalid json")))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+	ctx.Set("user_id", userID)
+	
+	ctrl := controllers.NewController(s.mockUC)
+	ctrl.UpdateProfile(ctx)
+	
+	s.Equal(http.StatusBadRequest, w.Code)
+	s.Contains(w.Body.String(), "Invalid request body")
+}
+
+func (s *ControllerTestSuite) TestUpdateProfile_UserNotFound() {
+	userID := "nonexistent"
+	updateReq := userpkg.UpdateProfileRequest{
+		Fullname: "Updated Name",
+	}
+	
+	s.mockUC.On("UpdateProfile", mock.Anything, userID, updateReq).Return(userpkg.User{}, errors.New("user not found"))
+	
+	reqBody, _ := json.Marshal(updateReq)
+	req := httptest.NewRequest("PUT", "/profile", bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+	ctx.Set("user_id", userID)
+	
+	ctrl := controllers.NewController(s.mockUC)
+	ctrl.UpdateProfile(ctx)
+	
+	s.Equal(http.StatusNotFound, w.Code)
+	s.Contains(w.Body.String(), "User not found")
+}
+
+func (s *ControllerTestSuite) TestUpdateProfile_NoFieldsToUpdate() {
+	userID := "user123"
+	updateReq := userpkg.UpdateProfileRequest{} // Empty update
+	
+	s.mockUC.On("UpdateProfile", mock.Anything, userID, updateReq).Return(userpkg.User{}, errors.New("no fields to update"))
+	
+	reqBody, _ := json.Marshal(updateReq)
+	req := httptest.NewRequest("PUT", "/profile", bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+	ctx.Set("user_id", userID)
+	
+	ctrl := controllers.NewController(s.mockUC)
+	ctrl.UpdateProfile(ctx)
+	
+	s.Equal(http.StatusBadRequest, w.Code)
+	s.Contains(w.Body.String(), "No fields to update")
+}
+
+func (s *ControllerTestSuite) TestUpdateProfile_InternalError() {
+	userID := "user123"
+	updateReq := userpkg.UpdateProfileRequest{
+		Fullname: "Updated Name",
+	}
+	
+	s.mockUC.On("UpdateProfile", mock.Anything, userID, updateReq).Return(userpkg.User{}, errors.New("database error"))
+	
+	reqBody, _ := json.Marshal(updateReq)
+	req := httptest.NewRequest("PUT", "/profile", bytes.NewBuffer(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = req
+	ctx.Set("user_id", userID)
+	
+	ctrl := controllers.NewController(s.mockUC)
+	ctrl.UpdateProfile(ctx)
+	
+	s.Equal(http.StatusInternalServerError, w.Code)
+	s.Contains(w.Body.String(), "Failed to update profile")
 }
 
 func TestControllerTestSuite(t *testing.T) {
