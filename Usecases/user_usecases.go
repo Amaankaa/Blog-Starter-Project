@@ -3,6 +3,10 @@ package usecases
 import (
 	"context"
 	"errors"
+	"mime/multipart"
+	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/Amaankaa/Blog-Starter-Project/Domain/services"
@@ -19,6 +23,7 @@ type UserUsecase struct {
 	jwtService        userpkg.IJWTService
 	passwordResetRepo userpkg.IPasswordResetRepository
 	verificationRepo  userpkg.IVerificationRepository
+	cloudinaryService userpkg.ICloudinaryService
 }
 
 func NewUserUsecase(
@@ -30,6 +35,7 @@ func NewUserUsecase(
 	emailSender services.IEmailSender,
 	passwordResetRepo userpkg.IPasswordResetRepository,
 	verificationRepo userpkg.IVerificationRepository,
+	cloudinaryService userpkg.ICloudinaryService,
 ) *UserUsecase {
 	return &UserUsecase{
 		userRepo:          userRepo,
@@ -40,6 +46,7 @@ func NewUserUsecase(
 		emailSender:       emailSender,
 		passwordResetRepo: passwordResetRepo,
 		verificationRepo:  verificationRepo,
+		cloudinaryService: cloudinaryService,
 	}
 }
 
@@ -386,8 +393,41 @@ func (u *UserUsecase) VerifyUser(ctx context.Context, email, otp string) error {
 	return nil
 }
 
-func (u *UserUsecase) UpdateProfile(ctx context.Context, userID string, updates userpkg.UpdateProfileRequest) (userpkg.User, error) {
+func (u *UserUsecase) UpdateProfile(ctx context.Context, userID string, updates userpkg.UpdateProfileRequest, file multipart.File, filename string) (userpkg.User, error) {
+
+	if updates.Fullname != "" && len(updates.Fullname) < 2 {
+        return userpkg.User{}, errors.New("fullname must be at least 2 characters")
+    }
+    if updates.Bio != "" && len(updates.Bio) > 500 {
+        return userpkg.User{}, errors.New("bio cannot exceed 500 characters")
+    }
+    if updates.ContactInfo.Phone != "" && !IsValidPhone(updates.ContactInfo.Phone) {
+        return userpkg.User{}, errors.New("invalid phone number format")
+    }
+    if updates.ContactInfo.Website != "" && !IsValidURL(updates.ContactInfo.Website) {
+		return userpkg.User{}, errors.New("invalid website URL")
+    }
+
+	if file != nil && filename != "" {
+		imageURL, err := u.cloudinaryService.UploadImage(ctx, file, filename)
+		if err != nil {
+			return userpkg.User{}, err
+		}
+		updates.ProfilePicture = imageURL
+	}
+    
 	return u.userRepo.UpdateProfile(ctx, userID, updates)
+}
+
+// Helper function
+func IsValidPhone(phone string) bool {
+    phoneRegex := regexp.MustCompile(`^\+?[1-9]\d{1,14}$`)
+    return phoneRegex.MatchString(phone)
+}
+
+func IsValidURL(rawurl string) bool {
+	_, err := url.Parse(rawurl)
+	return err == nil && (strings.HasPrefix(rawurl, "http://") || strings.HasPrefix(rawurl, "https://"))
 }
 
 func (u *UserUsecase) GetUserProfile(ctx context.Context, userID string) (userpkg.User, error) {

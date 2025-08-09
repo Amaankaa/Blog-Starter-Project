@@ -239,18 +239,76 @@ func (ctrl *Controller) VerifyUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "User verified"})
 }
+
 func (ctrl *Controller) GetProfile(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
-	defer cancel()
-	user, err := ctrl.userUsecase.GetUserProfile(ctx, userID)
+
+    userID := c.GetString("user_id")
+
+    if userID == "" {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+        return
+    }
+    ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+    defer cancel()
+    user, err := ctrl.userUsecase.GetUserProfile(ctx, userID)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+        return
+    }
+    c.JSON(http.StatusOK, user)
+}
+
+func (ctrl *Controller) UpdateProfile(c *gin.Context) {
+    userID := c.GetString("user_id")
+    if userID == "" {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+        return
+    }
+
+    // Parse multipart form (10MB limit)
+    err := c.Request.ParseMultipartForm(10 << 20)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to parse form"})
+        return
+    }
+
+    var updates userpkg.UpdateProfileRequest
+
+    // Get text fields
+    if fullname := c.PostForm("fullname"); fullname != "" {
+        updates.Fullname = fullname
+    }
+    if bio := c.PostForm("bio"); bio != "" {
+        updates.Bio = bio
+    }
+    if phone := c.PostForm("phone"); phone != "" {
+        updates.ContactInfo.Phone = phone
+    }
+    if website := c.PostForm("website"); website != "" {
+        updates.ContactInfo.Website = website
+    }
+    if twitter := c.PostForm("twitter"); twitter != "" {
+        updates.ContactInfo.Twitter = twitter
+    }
+    if linkedin := c.PostForm("linkedin"); linkedin != "" {
+        updates.ContactInfo.LinkedIn = linkedin
+    }
+
+    // Handle file upload
+    file, header, err := c.Request.FormFile("profilePicture")
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
+		file = nil
+		header = nil
 	}
-	c.JSON(http.StatusOK, user)
+
+    ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+    defer cancel()
+
+    updatedUser, err := ctrl.userUsecase.UpdateProfile(ctx, userID, updates, file, header.Filename)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, updatedUser)
 }

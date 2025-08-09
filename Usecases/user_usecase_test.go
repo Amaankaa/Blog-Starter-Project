@@ -27,6 +27,7 @@ type UserUsecaseTestSuite struct {
 	mockEmailSender      *mocks.IEmailSender
 	mockResetRepo        *mocks.IPasswordResetRepository
 	mockVerificationRepo *mocks.IVerificationRepository
+	mockCloudinaryService *mocks.ICloudinaryService
 	usecase              *usecases.UserUsecase
 }
 
@@ -45,6 +46,7 @@ func (s *UserUsecaseTestSuite) SetupTest() {
 	s.mockEmailSender = new(mocks.IEmailSender)
 	s.mockResetRepo = new(mocks.IPasswordResetRepository)
 	s.mockVerificationRepo = new(mocks.IVerificationRepository)
+	s.mockCloudinaryService = new(mocks.ICloudinaryService)
 
 	s.usecase = usecases.NewUserUsecase(
 		s.mockUserRepo,
@@ -55,6 +57,7 @@ func (s *UserUsecaseTestSuite) SetupTest() {
 		s.mockEmailSender,
 		s.mockResetRepo,
 		s.mockVerificationRepo,
+		s.mockCloudinaryService,
 	)
 }
 
@@ -280,10 +283,10 @@ func (s *UserUsecaseTestSuite) TestLoginUser_Success() {
 	userID := primitive.NewObjectID()
 
 	testUser := userpkg.User{
-		ID:       userID,
-		Username: login,
-		Password: hashedPassword,
-		Role:     "user",
+	   ID:         userID,
+	   Username:   login,
+	   Password:   hashedPassword,
+	   Role:       "user",
 		// mark user as verified to pass verification check
 		IsVerified: true,
 	}
@@ -337,8 +340,8 @@ func (s *UserUsecaseTestSuite) TestLoginUser_WrongPassword() {
 	hashedPassword := "hashedpassword"
 
 	testUser := userpkg.User{
-		Username: login,
-		Password: hashedPassword,
+	   Username:   login,
+	   Password:   hashedPassword,
 		// mark user as verified to bypass verification check
 		IsVerified: true,
 	}
@@ -753,4 +756,77 @@ func (s *UserUsecaseTestSuite) TestVerifyUser_InvalidCode() {
 	s.Error(err)
 	s.Equal("invalid code", err.Error())
 	s.mockVerificationRepo.AssertCalled(s.T(), "IncrementAttemptCount", s.ctx, email)
+}
+
+func (s *UserUsecaseTestSuite) TestUpdateProfile_Success() {
+	userID := primitive.NewObjectID().Hex()
+	updates := userpkg.UpdateProfileRequest{
+		Fullname:       "New Name",
+		Bio:            "A new bio",
+		ProfilePicture: "pic.jpg",
+		ContactInfo:    userpkg.ContactInfo{Phone: "+1234567890", Website: "https://mysite.com"},
+	}
+	expectedUser := userpkg.User{
+		ID:             primitive.NewObjectID(),
+		Fullname:       updates.Fullname,
+		Bio:            updates.Bio,
+		ProfilePicture: updates.ProfilePicture,
+		ContactInfo:    updates.ContactInfo,
+	}
+	s.mockUserRepo.On("UpdateProfile", s.ctx, userID, updates).Return(expectedUser, nil)
+
+	user, err := s.usecase.UpdateProfile(s.ctx, userID, updates, nil, "")
+	s.NoError(err)
+	s.Equal(updates.Fullname, user.Fullname)
+	s.Equal(updates.Bio, user.Bio)
+	s.Equal(updates.ProfilePicture, user.ProfilePicture)
+	s.Equal(updates.ContactInfo, user.ContactInfo)
+	s.mockUserRepo.AssertExpectations(s.T())
+}
+
+func (s *UserUsecaseTestSuite) TestUpdateProfile_FullnameTooShort() {
+	userID := primitive.NewObjectID().Hex()
+	updates := userpkg.UpdateProfileRequest{Fullname: "A"}
+	_, err := s.usecase.UpdateProfile(s.ctx, userID, updates, nil, "")
+	s.Error(err)
+	s.Equal("fullname must be at least 2 characters", err.Error())
+}
+
+func (s *UserUsecaseTestSuite) TestUpdateProfile_BioTooLong() {
+	userID := primitive.NewObjectID().Hex()
+	bio := strings.Repeat("a", 501)
+	updates := userpkg.UpdateProfileRequest{Bio: bio}
+	_, err := s.usecase.UpdateProfile(s.ctx, userID, updates, nil, "")
+	s.Error(err)
+	s.Equal("bio cannot exceed 500 characters", err.Error())
+}
+
+func (s *UserUsecaseTestSuite) TestUpdateProfile_InvalidPhone() {
+	userID := primitive.NewObjectID().Hex()
+	updates := userpkg.UpdateProfileRequest{
+		ContactInfo: userpkg.ContactInfo{Phone: "invalid"},
+	}
+	_, err := s.usecase.UpdateProfile(s.ctx, userID, updates, nil, "")
+	s.Error(err)
+	s.Equal("invalid phone number format", err.Error())
+}
+
+func (s *UserUsecaseTestSuite) TestUpdateProfile_InvalidWebsite() {
+	userID := primitive.NewObjectID().Hex()
+	updates := userpkg.UpdateProfileRequest{
+		ContactInfo: userpkg.ContactInfo{Website: "not-a-url"},
+	}
+	_, err := s.usecase.UpdateProfile(s.ctx, userID, updates, nil, "")
+	s.Error(err)
+	s.Equal("invalid website URL", err.Error())
+}
+
+func (s *UserUsecaseTestSuite) TestUpdateProfile_RepoError() {
+	userID := primitive.NewObjectID().Hex()
+	updates := userpkg.UpdateProfileRequest{Fullname: "Valid Name"}
+	s.mockUserRepo.On("UpdateProfile", s.ctx, userID, updates).Return(userpkg.User{}, errors.New("repo error"))
+	_, err := s.usecase.UpdateProfile(s.ctx, userID, updates, nil, "")
+	s.Error(err)
+	s.Equal("repo error", err.Error())
+	s.mockUserRepo.AssertExpectations(s.T())
 }

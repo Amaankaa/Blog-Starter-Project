@@ -22,10 +22,11 @@ func SetupRouter(controller *controllers.Controller, blogController *controllers
 	// Protected routes
 	protected := r.Group("")
 	protected.Use(authMiddleware.AuthMiddleware())
-
+	
 	//User routes
 	protected.POST("/logout", controller.Logout)
 	protected.GET("/profile", controller.GetProfile)
+    protected.PUT("/profile", controller.UpdateProfile)
 
 	// Admin routes for user promotion and demotion
 	admin := protected.Group("")
