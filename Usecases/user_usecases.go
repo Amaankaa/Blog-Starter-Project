@@ -54,6 +54,23 @@ func (uu *UserUsecase) RegisterUser(ctx context.Context, user userpkg.User) (use
 		return userpkg.User{}, errors.New("invalid email format")
 	}
 
+	// Username and email uniqueness
+	exists, err := uu.userRepo.ExistsByUsername(ctx, user.Username)
+	if err != nil {
+		return userpkg.User{}, errors.New("failed to check username existence: " + err.Error())
+	}
+	if exists {
+		return userpkg.User{}, errors.New("username already taken")
+	}
+	
+	exists, err = uu.userRepo.ExistsByEmail(ctx, user.Email)
+	if err != nil {
+		return userpkg.User{}, errors.New("failed to check email existence: " + err.Error())
+	}
+	if exists {
+		return userpkg.User{}, errors.New("email already taken")
+	}
+	
 	// Real email check
 	isReal, err := uu.emailVerifier.IsRealEmail(user.Email)
 	if err != nil {
@@ -68,15 +85,6 @@ func (uu *UserUsecase) RegisterUser(ctx context.Context, user userpkg.User) (use
 		return userpkg.User{}, errors.New("password must be at least 8 chars, with upper, lower, number, and special char")
 	}
 
-	// Username and email uniqueness
-	exists, _ := uu.userRepo.ExistsByUsername(ctx, user.Username)
-	if exists {
-		return userpkg.User{}, errors.New("username already taken")
-	}
-	exists, _ = uu.userRepo.ExistsByEmail(ctx, user.Email)
-	if exists {
-		return userpkg.User{}, errors.New("email already taken")
-	}
 
 	// Assign role
 	count, err := uu.userRepo.CountUsers(ctx)
@@ -96,13 +104,42 @@ func (uu *UserUsecase) RegisterUser(ctx context.Context, user userpkg.User) (use
 	}
 	user.Password = hashed
 
-	_, err = uu.userRepo.CreateUser(ctx, user)
+	// Create user (with isVerified = false by default)
+	createdUser, err := uu.userRepo.CreateUser(ctx, user)
 	if err != nil {
 		return userpkg.User{}, err
 	}
 
-	user.Password = "" // scrub before return
-	return user, nil
+	// Generate and send verification OTP
+	otp := utils.GenerateOTP(6)
+
+	// Send verification email
+	err = uu.emailSender.SendEmail(user.Email, "Email Verification Code", "Your verification OTP: "+otp)
+	if err != nil {
+		return userpkg.User{}, errors.New("failed to send verification code")
+	}
+
+	// Hash OTP before storing
+	hashedOTP, err := uu.passwordSvc.HashPassword(otp)
+	if err != nil {
+		return userpkg.User{}, errors.New("failed to process verification code")
+	}
+
+	// Store verification request
+	verification := userpkg.Verification{
+		Email:        user.Email,
+		OTP:          hashedOTP,
+		ExpiresAt:    time.Now().Add(10 * time.Minute),
+		AttemptCount: 0,
+	}
+
+	err = uu.verificationRepo.StoreVerification(ctx, verification)
+	if err != nil {
+		return userpkg.User{}, errors.New("failed to store verification code")
+	}
+
+	createdUser.Password = "" // scrub before return
+	return createdUser, nil
 }
 
 func (uu *UserUsecase) LoginUser(ctx context.Context, login, password string) (userpkg.User, string, string, error) {

@@ -49,7 +49,7 @@ func main() {
 	passwordService := infrastructure.NewPasswordService()
 	jwtService := infrastructure.NewJWTService()
 
-	emailVerifier, err := infrastructure.NewMailboxLayerVerifier()
+	emailVerifier, err := infrastructure.NewEmailListVerifyVerifier()
 	if err != nil {
 		log.Fatalf("Failed to initialize email verifier: %v", err)
 	}
@@ -68,7 +68,7 @@ func main() {
 	aiAPIURL := os.Getenv("GEMINI_API_URL")
 	if aiAPIURL == "" {
 		log.Fatal("GEMINI_API_URL not set in environment")
-	}		
+	}
 
 	//Usecase: handles business logic, gets all dependencies
 	verificationRepo := repositories.NewVerificationRepo(verificationCollection)
@@ -92,7 +92,7 @@ func main() {
 	authMiddleware := infrastructure.NewAuthMiddleware(jwtService)
 	aiRateLimiter := infrastructure.NewRateLimiter(infrastructure.RateLimit, infrastructure.BurstLimit)
 	//Router
-	r := routers.SetupRouter(controller, blogController, authMiddleware, aiController,aiRateLimiter)
+	r := routers.SetupRouter(controller, blogController, authMiddleware, aiController, aiRateLimiter)
 
 	//Start Server
 	log.Println("Server running on :8080")

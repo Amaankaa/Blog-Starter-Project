@@ -31,24 +31,24 @@ func (ctrl *Controller) Register(c *gin.Context) {
 	}
 
 	// 2. Create context with timeout (e.g. 20s)
-	//We needed a longer timeout due to MailboxLayer to verify the emails validity
+	//We needed a longer timeout to verify the emails validity
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 20*time.Second)
 	defer cancel()
 
-	// 3. Call the usecase
+	// 3. Call the usecase (now includes OTP sending)
 	createdUser, err := ctrl.userUsecase.RegisterUser(ctx, user)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// 4a. Send verification OTP
-	if err := ctrl.userUsecase.SendVerificationOTP(ctx, createdUser.Email); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to send verification code"})
-		return
-	}
 
-	// 5. Success response
-	c.JSON(http.StatusCreated, createdUser)
+	// 4. Success response with verification instruction
+	response := gin.H{
+		"message": "Registration successful! Please check your email for verification code.",
+		"user":    createdUser,
+		"note":    "You must verify your email before you can login.",
+	}
+	c.JSON(http.StatusCreated, response)
 }
 
 func (ctrl *Controller) Login(c *gin.Context) {
