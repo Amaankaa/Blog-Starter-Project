@@ -67,6 +67,10 @@ func (s *UserUsecaseTestSuite) TestRegisterFirstUserAsAdmin() {
 		Fullname: "Admin User",
 	}
 
+	// Expected user with admin role set
+	expectedUser := testUser
+	expectedUser.Role = "admin"
+
 	s.mockUserRepo.On("CountUsers", s.ctx).Return(int64(0), nil)
 	s.mockEmailVerifier.On("IsRealEmail", testUser.Email).Return(true, nil)
 	s.mockUserRepo.On("ExistsByUsername", s.ctx, testUser.Username).Return(false, nil)
@@ -75,10 +79,7 @@ func (s *UserUsecaseTestSuite) TestRegisterFirstUserAsAdmin() {
 	s.mockUserRepo.On("CreateUser", s.ctx, mock.Anything).Run(func(args mock.Arguments) {
 		userArg := args.Get(1).(userpkg.User)
 		s.Equal("admin", userArg.Role)
-	}).Return(func(ctx context.Context, user userpkg.User) userpkg.User {
-		user.Role = "admin" // Ensure the returned user has the role set
-		return user
-	}, nil)
+	}).Return(expectedUser, nil)
 
 	// Mock email sending for verification
 	s.mockEmailSender.On("SendEmail", testUser.Email, "Email Verification Code", mock.MatchedBy(func(body string) bool {
@@ -109,6 +110,10 @@ func (s *UserUsecaseTestSuite) TestRegisterSecondUserAsNormal() {
 		Fullname: "Normal User",
 	}
 
+	// Expected user with user role set
+	expectedUser := testUser
+	expectedUser.Role = "user"
+
 	s.mockUserRepo.On("CountUsers", s.ctx).Return(int64(1), nil)
 	s.mockEmailVerifier.On("IsRealEmail", testUser.Email).Return(true, nil)
 	s.mockUserRepo.On("ExistsByUsername", s.ctx, testUser.Username).Return(false, nil)
@@ -117,10 +122,7 @@ func (s *UserUsecaseTestSuite) TestRegisterSecondUserAsNormal() {
 	s.mockUserRepo.On("CreateUser", s.ctx, mock.Anything).Run(func(args mock.Arguments) {
 		userArg := args.Get(1).(userpkg.User)
 		s.Equal("user", userArg.Role)
-	}).Return(func(ctx context.Context, user userpkg.User) userpkg.User {
-		user.Role = "user" // Ensure the returned user has the role set
-		return user
-	}, nil)
+	}).Return(expectedUser, nil)
 
 	// Mock email sending for verification
 	s.mockEmailSender.On("SendEmail", testUser.Email, "Email Verification Code", mock.MatchedBy(func(body string) bool {
