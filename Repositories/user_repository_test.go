@@ -245,3 +245,48 @@ func (s *userRepositoryTestSuite) TestUpdateProfile_InvalidID() {
 	_, err := s.repo.UpdateProfile(s.ctx, invalidID, updates)
 	s.Error(err)
 }
+
+func (s *userRepositoryTestSuite) TestGetUserProfile_Success() {
+	// Arrange: create a user
+	user := userpkg.User{
+		Username:       "profileuser",
+		Password:       "pass",
+		Email:          "profile@example.com",
+		Fullname:       "Profile User",
+		Bio:            "User bio",
+		ProfilePicture: "profile.jpg",
+		ContactInfo: userpkg.ContactInfo{
+			Phone:   "1234567890",
+			Website: "example.com",
+		},
+	}
+	created, err := s.repo.CreateUser(s.ctx, user)
+	s.Require().NoError(err, "Failed to create user")
+	id := created.ID.Hex()
+
+	// Act
+	got, err := s.repo.GetUserProfile(s.ctx, id)
+
+	// Assert
+	s.NoError(err, "Error occurred while fetching user profile")
+	s.Equal(created.ID, got.ID, "User ID mismatch")
+	s.Equal(created.Username, got.Username, "Username mismatch")
+	s.Equal(created.Email, got.Email, "Email mismatch")
+	s.Equal(created.Fullname, got.Fullname, "Fullname mismatch")
+	s.Equal(created.Bio, got.Bio, "Bio mismatch")
+	s.Equal(created.ProfilePicture, got.ProfilePicture, "Profile picture mismatch")
+	s.Equal(created.ContactInfo, got.ContactInfo, "Contact info mismatch")
+}
+
+func (s *userRepositoryTestSuite) TestGetUserProfile_NotFound() {
+	// Arrange: generate a non-existent user ID
+	nonExistentID := primitive.NewObjectID().Hex()
+
+	// Act
+	got, err := s.repo.GetUserProfile(s.ctx, nonExistentID)
+
+	// Assert
+	s.Error(err, "Expected error for non-existent user ID")
+	s.Contains(err.Error(), "no documents in result", "Error message mismatch")
+	s.Equal(userpkg.User{}, got, "Expected empty user object")
+}
