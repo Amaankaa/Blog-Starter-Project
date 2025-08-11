@@ -3,6 +3,8 @@ package repositories
 import (
 	"context"
 	"errors"
+	"reflect"
+	"time"
 
 	userpkg "github.com/Amaankaa/Blog-Starter-Project/Domain/user"
 
@@ -160,9 +162,34 @@ func (ur *UserRepository) UpdateIsVerifiedByEmail(ctx context.Context, email str
 }
 
 func (ur *UserRepository) UpdateProfile(ctx context.Context, userID string, updates userpkg.UpdateProfileRequest) (userpkg.User, error) {
-	var user userpkg.User
-
-	return user, nil
+	oid, err := primitive.ObjectIDFromHex(userID)
+    if err != nil {
+        return userpkg.User{}, err
+    }
+    updateDoc := bson.M{
+        "$set": bson.M{
+            "updatedAt": time.Now(),
+        },
+    }
+    if updates.Fullname != "" {
+        updateDoc["$set"].(bson.M)["fullname"] = updates.Fullname
+    }
+    if updates.Bio != "" {
+        updateDoc["$set"].(bson.M)["bio"] = updates.Bio
+    }
+    if updates.ProfilePicture != "" {
+        updateDoc["$set"].(bson.M)["profilePicture"] = updates.ProfilePicture
+    }
+	// Only update contactInfo if it is not empty
+    if !reflect.DeepEqual(updates.ContactInfo, userpkg.ContactInfo{}) {
+        updateDoc["$set"].(bson.M)["contactInfo"] = updates.ContactInfo
+    }
+	filter := bson.M{"_id": oid}
+    _, err = ur.collection.UpdateOne(ctx, filter, updateDoc)
+    if err != nil {
+        return userpkg.User{}, err
+    }
+    return ur.FindByID(ctx, userID)
 }
 
 func (ur *UserRepository) GetUserProfile(ctx context.Context, userID string) (userpkg.User, error) {

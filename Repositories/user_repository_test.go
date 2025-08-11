@@ -192,3 +192,56 @@ func (s *userRepositoryTestSuite) TestUpdateIsVerifiedByEmail_NotFound() {
 	s.Error(err)
 	s.Contains(err.Error(), "user not found")
 }
+
+func (s *userRepositoryTestSuite) TestUpdateProfile_Success() {
+	// Arrange: create a user
+	user := userpkg.User{
+		Username:       "profileuser",
+		Password:       "pass",
+		Email:          "profile@example.com",
+		Fullname:       "Profile User",
+		Bio:            "Old bio",
+		ProfilePicture: "oldpic.jpg",
+		ContactInfo:    userpkg.ContactInfo{Phone: "123", Website: "oldsite.com"},
+	}
+	created, err := s.repo.CreateUser(s.ctx, user)
+	s.Require().NoError(err)
+	id := created.ID.Hex()
+
+	// Act: update profile fields
+	updates := userpkg.UpdateProfileRequest{
+		Fullname:       "New Name",
+		Bio:            "New bio",
+		ProfilePicture: "newpic.jpg",
+		ContactInfo:    userpkg.ContactInfo{Phone: "456", Website: "newsite.com", Twitter: "@new"},
+	}
+	updated, err := s.repo.UpdateProfile(s.ctx, id, updates)
+	s.Require().NoError(err)
+
+	// Assert: fields are updated
+	s.Equal("New Name", updated.Fullname)
+	s.Equal("New bio", updated.Bio)
+	s.Equal("newpic.jpg", updated.ProfilePicture)
+	s.Equal(userpkg.ContactInfo{Phone: "456", Website: "newsite.com", Twitter: "@new"}, updated.ContactInfo)
+	s.WithinDuration(time.Now(), updated.UpdatedAt, time.Second*2)
+}
+
+// TestUpdateProfile_NotFound returns error when user does not exist
+func (s *userRepositoryTestSuite) TestUpdateProfile_NotFound() {
+	fakeID := primitive.NewObjectID().Hex()
+	updates := userpkg.UpdateProfileRequest{
+		Fullname: "Ghost",
+	}
+	_, err := s.repo.UpdateProfile(s.ctx, fakeID, updates)
+	s.Error(err)
+}
+
+// TestUpdateProfile_InvalidID returns error for invalid object ID
+func (s *userRepositoryTestSuite) TestUpdateProfile_InvalidID() {
+	invalidID := "not-a-valid-hex"
+	updates := userpkg.UpdateProfileRequest{
+		Fullname: "Invalid",
+	}
+	_, err := s.repo.UpdateProfile(s.ctx, invalidID, updates)
+	s.Error(err)
+}

@@ -1,6 +1,9 @@
 package userpkg
 
-import "context"
+import (
+	"context"
+	"mime/multipart"
+)
 
 type IUserUsecase interface {
 	RegisterUser(ctx context.Context, user User) (User, error)
@@ -14,7 +17,7 @@ type IUserUsecase interface {
 	DemoteUser(ctx context.Context, targetUserID string, actorUserID string) error
 	SendVerificationOTP(ctx context.Context, email string) error
 	VerifyUser(ctx context.Context, email, otp string) error
-	UpdateProfile(ctx context.Context, userID string, updates UpdateProfileRequest) (User, error)
+	UpdateProfile(ctx context.Context, userID string, updates UpdateProfileRequest, file multipart.File, filename string) (User, error)
     GetUserProfile(ctx context.Context, userID string) (User, error)
 }
 
@@ -28,4 +31,8 @@ type IJWTService interface {
 type IPasswordService interface {
 	HashPassword(password string) (string, error)
 	ComparePassword(hashedPassword, password string) error
+}
+
+type ICloudinaryService interface {
+    UploadImage(ctx context.Context, file multipart.File, filename string) (string, error)
 }

@@ -55,6 +55,21 @@ func main() {
 	}
 	emailSender := infrastructure.NewBrevoEmailSender()
 
+	// Cloudinary configuration
+	cloudName := os.Getenv("CLOUDINARY_CLOUD_NAME")
+	cloudAPIKey := os.Getenv("CLOUDINARY_API_KEY")
+	cloudAPISecret := os.Getenv("CLOUDINARY_API_SECRET")
+	
+	if cloudName == "" || cloudAPIKey == "" || cloudAPISecret == "" {
+		log.Fatal("Cloudinary credentials not set in environment")
+	}
+
+	// Services
+	cloudinaryService, err := infrastructure.NewCloudinaryService(cloudName, cloudAPIKey, cloudAPISecret)
+	if err != nil {
+		log.Fatalf("Failed to initialize Cloudinary service: %v", err)
+	}
+
 	//Repositories: only take collection (not services)
 	userRepo := repositories.NewUserRepository(userCollection)
 	tokenRepo := repositories.NewTokenRepository(tokenCollection)
@@ -81,6 +96,7 @@ func main() {
 		emailSender,
 		passwordResetRepo,
 		verificationRepo,
+		cloudinaryService,
 	)
 	blogUsecase := usecases.NewBlogUsecase(blogRepo)
 	aiUseCase := usecases.NewAIUseCase(aiAPIKey, aiAPIURL)
