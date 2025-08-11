@@ -303,10 +303,7 @@ func (uu *UserUsecase) PromoteUser(ctx context.Context, targetUserID string, act
 	if err != nil {
 		return err
 	}
-	// Ensure actor has admin privileges
-	if actor.Role != "admin" {
-		return errors.New("only admins can demote users")
-	}
+	
 	// Block acting on your promoter
 	if !actor.PromotedBy.IsZero() && actor.PromotedBy.Hex() == target.ID.Hex() {
 		return errors.New("cannot act on your promoter")
@@ -329,11 +326,6 @@ func (uu *UserUsecase) DemoteUser(ctx context.Context, targetUserID string, acto
 	actor, err := uu.userRepo.FindByID(ctx, actorUserID)
 	if err != nil {
 		return err
-	}
-	
-	// Ensure actor has admin privileges
-	if actor.Role != "admin" {
-		return errors.New("only admins can promote users")
 	}
 
 	// Block acting on your promoter
