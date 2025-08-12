@@ -830,3 +830,38 @@ func (s *UserUsecaseTestSuite) TestUpdateProfile_RepoError() {
 	s.Equal("repo error", err.Error())
 	s.mockUserRepo.AssertExpectations(s.T())
 }
+
+func (s *UserUsecaseTestSuite) TestGetUserProfile_Success() {
+	// Arrange
+	userID := "valid-user-id"
+	expectedUser := userpkg.User{
+		ID:       primitive.NewObjectID(),
+		Username: "testuser",
+		Email:    "test@example.com",
+		Fullname: "Test User",
+	}
+	s.mockUserRepo.On("GetUserProfile", s.ctx, userID).Return(expectedUser, nil)
+
+	// Act
+	actualUser, err := s.usecase.GetUserProfile(s.ctx, userID)
+
+	// Assert
+	s.NoError(err, "Expected no error for valid user ID")
+	s.Equal(expectedUser, actualUser, "Expected user details to match")
+	s.mockUserRepo.AssertCalled(s.T(), "GetUserProfile", s.ctx, userID)
+}
+
+func (s *UserUsecaseTestSuite) TestGetUserProfile_NotFound() {
+	// Arrange
+	userID := "non-existent-user-id"
+	s.mockUserRepo.On("GetUserProfile", s.ctx, userID).Return(userpkg.User{}, errors.New("user not found"))
+
+	// Act
+	actualUser, err := s.usecase.GetUserProfile(s.ctx, userID)
+
+	// Assert
+	s.Error(err, "Expected error for non-existent user ID")
+	s.Contains(err.Error(), "user not found", "Expected error message to contain 'user not found'")
+	s.Equal(userpkg.User{}, actualUser, "Expected empty user object for non-existent user ID")
+	s.mockUserRepo.AssertCalled(s.T(), "GetUserProfile", s.ctx, userID)
+}

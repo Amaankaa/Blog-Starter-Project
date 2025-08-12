@@ -233,6 +233,43 @@ func (s *ControllerTestSuite) TestDemoteUser_Error() {
 	s.Contains(w.Body.String(), "fail to demote")
 }
 
+func (s *ControllerTestSuite) TestGetProfile_Success() {
+	// Arrange
+	expectedUser := userpkg.User{
+		Username: "testuser",
+		Email:    "test@example.com",
+		Fullname: "Test User",
+	}
+	s.mockUC.On("GetUserProfile", mock.Anything, "valid-user-id").Return(expectedUser, nil)
+
+	s.router.GET("/profile", func(c *gin.Context) {
+		c.Set("user_id", "valid-user-id")
+		c.Next()
+	}, controllers.NewController(s.mockUC).GetProfile)
+
+	// Act
+	w := s.performRequest("GET", "/profile", nil)
+
+	// Assert
+	s.Equal(http.StatusOK, w.Code)
+	var actualUser userpkg.User
+	s.NoError(json.Unmarshal(w.Body.Bytes(), &actualUser))
+	s.Equal(expectedUser, actualUser)
+	s.mockUC.AssertCalled(s.T(), "GetUserProfile", mock.Anything, "valid-user-id")
+}
+
+func (s *ControllerTestSuite) TestGetProfile_Unauthorized() {
+	// Arrange
+	s.router.GET("/profile", controllers.NewController(s.mockUC).GetProfile)
+
+	// Act
+	w := s.performRequest("GET", "/profile", nil)
+
+	// Assert
+	s.Equal(http.StatusUnauthorized, w.Code)
+	s.Contains(w.Body.String(), "Unauthorized")
+}
+
 func TestControllerTestSuite(t *testing.T) {
 	suite.Run(t, new(ControllerTestSuite))
 }

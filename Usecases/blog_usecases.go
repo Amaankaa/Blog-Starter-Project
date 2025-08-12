@@ -244,7 +244,7 @@ func (bu *BlogUsecase) ToggleLike(ctx context.Context, blogID string, userID str
 		return errors.New("blog not found")
 	}
 
-	// Check if aleardy liked
+	// Check if already liked
 	for _, id := range blog.Likes {
 		if id == userID {
 			return bu.blogRepo.RemoveLike(ctx, blogID, userID)
