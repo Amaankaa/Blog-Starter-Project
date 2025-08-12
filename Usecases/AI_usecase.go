@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Amaankaa/Blog-Starter-Project/Domain/AI"
 	aidomain "github.com/Amaankaa/Blog-Starter-Project/Domain/AI"
 )
 
@@ -40,7 +39,7 @@ func (uc *AIUseCase) GenerateContentSuggestions(ctx context.Context, req *aidoma
 		prompt += fmt.Sprintf(" Improve or suggest enhancements for this existing content: %s", req.ExistingContent)
 	}
 
-	geminiReq := AI.GeminiRequest{
+	geminiReq := aidomain.GeminiRequest{
 		Contents: []struct {
 			Parts []struct {
 				Text string `json:"text"`
@@ -74,7 +73,7 @@ func (uc *AIUseCase) GenerateContentSuggestions(ctx context.Context, req *aidoma
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	var geminiResp AI.GeminiResponse
+	var geminiResp aidomain.GeminiResponse
 	maxRetries := 3
 	for i := 0; i < maxRetries; i++ {
 		resp, err := uc.HTTPClient.Do(httpReq)
